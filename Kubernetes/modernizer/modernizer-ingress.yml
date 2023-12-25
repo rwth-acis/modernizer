@@ -1,0 +1,25 @@
+kind: Ingress
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: modernizer-ingress2
+  namespace: ba-kovacevic
+spec:
+  tls:
+    - hosts:
+        - modernizer.milki-psy.dbis.rwth-aachen.de
+      secretName: nginx-tls
+  rules:
+    - host: modernizer.milki-psy.dbis.rwth-aachen.de
+      http:
+        paths:
+          - path: /(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: modernizer-service
+                port:
+                  number: 443
+status:
+  loadBalancer:
+    ingress:
+      - ip: 137.226.232.176

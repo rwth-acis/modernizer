@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: modernizer-backend
+  labels:
+    app: modernizer-backend
+spec:
+  containers:
+  - image: registry.tech4comp.dbis.rwth-aachen.de/rwthacis/modernizer:latest 
+    command:
+      - "./main"
+    imagePullPolicy: Always
+    name: modernizer-backend
+  restartPolicy: Always
