@@ -6,8 +6,8 @@ spec:
   selector:
     app: modernizer-backend
   ports:
-    - name: API
+    - name: gin-web
       protocol: TCP
       port: 443
       targetPort: 8080
-type: ClusterIP
+  type: ClusterIP

@@ -15,7 +15,7 @@ func main() {
 
 func getInfo(c *gin.Context) {
 
-	resp, err := http.Get("https://modernizer.milki-psy.dbis.rwth-aachen.de")
+	resp, err := http.Get("ollama-service.ba-kovacevic:11434")
 
 	if err != nil {
 		//

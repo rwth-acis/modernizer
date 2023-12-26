@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: modernizer-backend-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: modernizer-backend
+  template:
+    metadata:
+      labels:
+        app: modernizer-backend
+    spec:
+      containers:
+      - name: modernizer-backend
+        image: registry.tech4comp.dbis.rwth-aachen.de/rwthacis/modernizer:latest
+        ports:
+        - containerPort: 8080
+        imagePullPolicy: Always
