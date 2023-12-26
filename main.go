@@ -15,7 +15,7 @@ func main() {
 
 func getInfo(c *gin.Context) {
 
-	resp, err := http.Get("ollama-service.ba-kovacevic:11434")
+	resp, err := http.Get("http://ollama-service.ba-kovacevic:11434")
 
 	if err != nil {
 		//
@@ -28,9 +28,5 @@ func getInfo(c *gin.Context) {
 	_, err = io.Copy(c.Writer, resp.Body)
 
 	defer resp.Body.Close()
-
-	if err != nil {
-		//
-	}
 
 }
