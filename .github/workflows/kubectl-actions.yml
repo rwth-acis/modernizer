@@ -1,5 +1,5 @@
 name: Get pods
-on: [push]
+on: [workflow_dispatch]
 
 jobs:
   deploy:
