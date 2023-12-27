@@ -4,18 +4,24 @@ import (
 	"github.com/gin-gonic/gin"
 	"io"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 )
+
+var OllamaURL = "http://ollama-service.ba-kovacevic:11434"
 
 func main() {
 	router := gin.Default()
 	router.GET("/", getInfo)
+
+	router.Any("/api/*proxyPath", proxy)
 
 	router.Run(":8080")
 }
 
 func getInfo(c *gin.Context) {
 
-	resp, err := http.Get("http://ollama-service.ba-kovacevic:11434")
+	resp, err := http.Get(OllamaURL)
 
 	if err != nil {
 		//
@@ -29,4 +35,22 @@ func getInfo(c *gin.Context) {
 
 	defer resp.Body.Close()
 
+}
+
+func proxy(c *gin.Context) {
+	remote, err := url.Parse(OllamaURL)
+	if err != nil {
+		panic(err)
+	}
+
+	proxy := httputil.NewSingleHostReverseProxy(remote)
+	proxy.Director = func(req *http.Request) {
+		req.Header = c.Request.Header
+		req.Host = remote.Host
+		req.URL.Scheme = remote.Scheme
+		req.URL.Host = remote.Host
+		req.URL.Path = c.Param("proxyPath")
+	}
+
+	proxy.ServeHTTP(c.Writer, c.Request)
 }
