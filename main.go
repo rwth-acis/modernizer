@@ -16,7 +16,10 @@ func main() {
 
 	router.Any("/api/*proxyPath", proxy)
 
-	router.Run(":8080")
+	err := router.Run(":8080")
+	if err != nil {
+		return
+	}
 }
 
 func getInfo(c *gin.Context) {
