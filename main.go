@@ -1,20 +1,21 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
 	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+
+	"github.com/gin-gonic/gin"
 )
 
 var OllamaURL = "http://ollama-service.ba-kovacevic:11434"
 
 func main() {
 	router := gin.Default()
-	router.GET("/", getInfo)
+	// router.GET("/", getInfo)
 
-	router.Any("/api/*proxyPath", proxy)
+	router.Any("/*proxyPath", proxy)
 
 	err := router.Run(":8080")
 	if err != nil {
