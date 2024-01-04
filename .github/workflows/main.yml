@@ -21,7 +21,7 @@ jobs:
         docker push registry.tech4comp.dbis.rwth-aachen.de/rwthacis/modernizer:latest
   rollout:
     needs: build
-    name: GetPods
+    name: Rollout and Restart Modernizer Deployment
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
