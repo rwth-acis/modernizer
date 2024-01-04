@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -41,7 +40,7 @@ func LogRequestBodyMiddleware(c *gin.Context) {
 	log.Printf("Request Body: %s\n", body)
 
 	// Rewind the request body so that subsequent middleware/handlers can read it
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
 	c.Next()
 }
 
@@ -64,10 +63,16 @@ func getInfo(c *gin.Context) {
 }
 
 func proxy(c *gin.Context) {
-
 	remote, err := url.Parse(os.Getenv("OLLAMA_URL"))
 	if err != nil {
-		panic(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error parsing remote URL"})
+		return
+	}
+
+	// Save the original request body
+	requestBody, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		log.Printf("Error reading request body: %v", err)
 	}
 
 	proxy := httputil.NewSingleHostReverseProxy(remote)
@@ -79,5 +84,34 @@ func proxy(c *gin.Context) {
 		req.URL.Path = c.Param("proxyPath")
 	}
 
-	proxy.ServeHTTP(c.Writer, c.Request)
+	// Create a custom response writer to intercept the response
+	responseWriter := &responseWriterInterceptor{
+		ResponseWriter:  c.Writer,
+		BodyInterceptor: &bytes.Buffer{},
+	}
+
+	// Replace the response writer with the custom one
+	c.Writer = responseWriter
+
+	// Restore the original request body
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
+
+	// ServeHTTP on the proxy
+	proxy.ServeHTTP(responseWriter, c.Request)
+
+	// Log the request and response bodies
+	log.Printf("Request Body: %s\n", string(requestBody))
+	log.Printf("Response Body: %s\n", responseWriter.BodyInterceptor.Bytes())
+}
+
+// responseWriterInterceptor is a custom ResponseWriter to intercept the response body
+type responseWriterInterceptor struct {
+	gin.ResponseWriter
+	BodyInterceptor *bytes.Buffer
+}
+
+// Write method intercepts the response body
+func (w *responseWriterInterceptor) Write(b []byte) (int, error) {
+	w.BodyInterceptor.Write(b)
+	return w.ResponseWriter.Write(b)
 }
