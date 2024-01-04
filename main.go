@@ -1,19 +1,24 @@
 package main
 
 import (
+	"bytes"
 	"io"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 
 	"github.com/gin-gonic/gin"
 )
 
-var OllamaURL = "http://ollama-service.ba-kovacevic:11434"
-
 func main() {
 	router := gin.Default()
+
 	// router.GET("/", getInfo)
+
+	router.Use(LogRequestBodyMiddleware)
 
 	router.Any("/*proxyPath", proxy)
 
@@ -23,7 +28,26 @@ func main() {
 	}
 }
 
+func LogRequestBodyMiddleware(c *gin.Context) {
+
+	body, err := c.GetRawData()
+
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Error reading request body"})
+		return
+	}
+
+	// Log the request body
+	log.Printf("Request Body: %s\n", body)
+
+	// Rewind the request body so that subsequent middleware/handlers can read it
+	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+	c.Next()
+}
+
 func getInfo(c *gin.Context) {
+
+	OllamaURL := os.Getenv("OLLAMA_URL")
 
 	resp, err := http.Get(OllamaURL)
 
@@ -42,6 +66,9 @@ func getInfo(c *gin.Context) {
 }
 
 func proxy(c *gin.Context) {
+
+	OllamaURL := os.Getenv("OLLAMA_URL")
+
 	remote, err := url.Parse(OllamaURL)
 	if err != nil {
 		panic(err)
