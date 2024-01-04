@@ -1,4 +1,4 @@
-name: Docker Build and Push
+name: Build Modernizer Image and restart Pod
 
 on:
   push:
@@ -19,3 +19,11 @@ jobs:
       run: |
         docker login -u $DOCKER_USERNAME -p $DOCKER_PW registry.tech4comp.dbis.rwth-aachen.de
         docker push registry.tech4comp.dbis.rwth-aachen.de/rwthacis/modernizer:latest
+  rollout:
+    needs: build
+    name: GetPods
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          kubectl.exe rollout restart deployment modernizer-backend-deployment 
