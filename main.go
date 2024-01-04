@@ -47,9 +47,7 @@ func LogRequestBodyMiddleware(c *gin.Context) {
 
 func getInfo(c *gin.Context) {
 
-	OllamaURL := os.Getenv("OLLAMA_URL")
-
-	resp, err := http.Get(OllamaURL)
+	resp, err := http.Get(os.Getenv("OLLAMA_URL"))
 
 	if err != nil {
 		//
@@ -67,9 +65,7 @@ func getInfo(c *gin.Context) {
 
 func proxy(c *gin.Context) {
 
-	OllamaURL := os.Getenv("OLLAMA_URL")
-
-	remote, err := url.Parse(OllamaURL)
+	remote, err := url.Parse(os.Getenv("OLLAMA_URL"))
 	if err != nil {
 		panic(err)
 	}
