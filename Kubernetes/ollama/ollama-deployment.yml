@@ -23,6 +23,3 @@ spec:
           ports:
             - containerPort: 11434
           command: ["ollama", "run", "codellama:7b-instruct"]
-          env:
-            - name: OLLAMA_URL
-              value: "ollama-service.ba-kovacevic:11434"
