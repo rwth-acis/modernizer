@@ -22,4 +22,7 @@ spec:
               nvidia.com/gpu: "1"
           ports:
             - containerPort: 11434
-          command: ["ollama", "run", "codellama:7b-instruct"]
+          lifecycle:
+            postStart:
+              exec:
+                command: ["ollama", "run", "codellama:7b-instruct"]

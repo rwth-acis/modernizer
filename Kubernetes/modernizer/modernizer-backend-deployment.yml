@@ -20,4 +20,4 @@ spec:
         imagePullPolicy: Always
         env:
           - name: OLLAMA_URL
-            value: "ollama-service.ba-kovacevic:11434"
+            value: "http://ollama-service.ba-kovacevic:11434"
