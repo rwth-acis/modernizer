@@ -17,7 +17,7 @@ func main() {
 
 	// router.GET("/", getInfo)
 
-	router.Use(LogRequestBodyMiddleware)
+	// router.Use(LogRequestBodyMiddleware)
 
 	router.Any("/*proxyPath", proxy)
 
