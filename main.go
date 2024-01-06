@@ -28,7 +28,7 @@ func main() {
 
 	// router.Use(LogRequestBodyMiddleware)
 
-	router.Any("/*proxyPath", proxy)
+	router.Any("/ollama/*proxyPath", proxy)
 
 	err := router.Run(":8080")
 	if err != nil {
