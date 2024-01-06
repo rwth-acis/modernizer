@@ -21,3 +21,10 @@ spec:
         env:
           - name: OLLAMA_URL
             value: "http://ollama-service.ba-kovacevic:11434"
+          - name: WEAVIATE_HOST
+            value: "http://weaviate.ba-kovacevic:80"
+          - name: WEAVIATE_KEY
+            valueFrom:
+              secretKeyRef:
+                name: weaviate
+                key: API_key

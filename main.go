@@ -10,12 +10,21 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rwth-acis/modernizer/weaviate"
 )
 
 func main() {
 	router := gin.Default()
 
-	// router.GET("/", getInfo)
+	router.GET("/weaviate/schema", func(c *gin.Context) {
+		schema, err := weaviate.RetrieveSchema()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.Data(http.StatusOK, "application/json; charset=utf-8", schema)
+	})
 
 	// router.Use(LogRequestBodyMiddleware)
 
