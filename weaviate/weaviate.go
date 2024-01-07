@@ -10,6 +10,7 @@ import (
 )
 
 func RetrieveSchema() ([]byte, error) {
+
 	cfg := weaviate.Config{
 		Host:       os.Getenv("WEAVIATE_HOST"), // Replace with your endpoint
 		Scheme:     "http",
