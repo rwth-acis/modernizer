@@ -11,12 +11,10 @@ import (
 
 func RetrieveSchema() ([]byte, error) {
 
-	AuthKey := os.Getenv("WEAVIATE_KEY")
-
 	cfg := weaviate.Config{
 		Host:       os.Getenv("WEAVIATE_HOST"), // Replace with your endpoint
 		Scheme:     "http",
-		AuthConfig: auth.ApiKey{Value: AuthKey},
+		AuthConfig: auth.ApiKey{Value: os.Getenv("WEAVIATE_KEY")},
 	}
 
 	client, err := weaviate.NewClient(cfg)
