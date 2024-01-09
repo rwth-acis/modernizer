@@ -14,6 +14,10 @@ import (
 )
 
 func main() {
+
+	// create Weaviate schema
+	weaviate.CreateSchema()
+
 	router := gin.Default()
 
 	router.GET("/weaviate/schema", func(c *gin.Context) {
