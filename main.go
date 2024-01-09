@@ -16,7 +16,14 @@ import (
 func main() {
 
 	// create Weaviate schema
-	weaviate.CreateSchema()
+	err := weaviate.CreateSchema("Prompt", "Content of the users prompt")
+	if err != nil {
+		panic(err)
+	}
+	err = weaviate.CreateSchema("Response", "Content of the LLMs response")
+	if err != nil {
+		panic(err)
+	}
 
 	router := gin.Default()
 
@@ -32,7 +39,7 @@ func main() {
 
 	router.Any("/ollama/*proxyPath", proxy)
 
-	err := router.Run(":8080")
+	err = router.Run(":8080")
 	if err != nil {
 		return
 	}
