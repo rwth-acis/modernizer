@@ -26,49 +26,12 @@ func main() {
 		c.Data(http.StatusOK, "application/json; charset=utf-8", schema)
 	})
 
-	// router.Use(LogRequestBodyMiddleware)
-
 	router.Any("/ollama/*proxyPath", proxy)
 
 	err := router.Run(":8080")
 	if err != nil {
 		return
 	}
-}
-
-func LogRequestBodyMiddleware(c *gin.Context) {
-
-	body, err := c.GetRawData()
-
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Error reading request body"})
-		return
-	}
-
-	// Log the request body
-	log.Printf("Request Body: %s\n", body)
-
-	// Rewind the request body so that subsequent middleware/handlers can read it
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
-	c.Next()
-}
-
-func getInfo(c *gin.Context) {
-
-	resp, err := http.Get(os.Getenv("OLLAMA_URL"))
-
-	if err != nil {
-		//
-	}
-
-	// Set the content type to text/plain
-	c.Header("Content-Type", "text/plain")
-
-	// Copy the HTML data directly to the response
-	_, err = io.Copy(c.Writer, resp.Body)
-
-	defer resp.Body.Close()
-
 }
 
 func proxy(c *gin.Context) {
