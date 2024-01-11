@@ -1,8 +1,12 @@
 kind: Ingress
 apiVersion: networking.k8s.io/v1
 metadata:
-  name: modernizer-ingress2
-  namespace: ba-kovacevic
+  name: modernizer-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2$3
+    nginx.ingress.kubernetes.io/use-regex: 'true'
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      proxy_set_header Referer $http_referer;
 spec:
   tls:
     - hosts:
@@ -12,14 +16,35 @@ spec:
     - host: modernizer.milki-psy.dbis.rwth-aachen.de
       http:
         paths:
-          - path: /(.*)
+          - path: /()(ollama)(.*)
             pathType: Prefix
             backend:
               service:
-                name: modernizer-service
+                name: modernizer-backend-service
                 port:
                   number: 443
+          - path: /()(weaviate)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: modernizer-backend-service
+                port:
+                  number: 443
+          - path: /chatbot(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: ollama-webui-service
+                port:
+                  number: 8080
+          - path: /ollama-debug(/|$)(.*)
+            pathType: Prefix
+            backend:
+              service:
+                name: ollama-service
+                port:
+                  number: 11434
 status:
   loadBalancer:
     ingress:
-      - ip: 137.226.232.176
+      - ip: 137.226.232.175

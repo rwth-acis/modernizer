@@ -37,7 +37,9 @@ func main() {
 		c.Data(http.StatusOK, "application/json; charset=utf-8", schema)
 	})
 
-	router.Any("/ollama/*proxyPath", proxy)
+	router.Any("/ollama/*proxyPath", proxyLog)
+
+	router.Any("/chatbot/*proxyPath", proxy)
 
 	err = router.Run(":8080")
 	if err != nil {
@@ -45,7 +47,7 @@ func main() {
 	}
 }
 
-func proxy(c *gin.Context) {
+func proxyLog(c *gin.Context) {
 	remote, err := url.Parse(os.Getenv("OLLAMA_URL"))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error parsing remote URL"})
@@ -97,4 +99,22 @@ type responseWriterInterceptor struct {
 func (w *responseWriterInterceptor) Write(b []byte) (int, error) {
 	w.BodyInterceptor.Write(b)
 	return w.ResponseWriter.Write(b)
+}
+
+func proxy(c *gin.Context) {
+	remote, err := url.Parse(os.Getenv("WEBUI_URL"))
+	if err != nil {
+		panic(err)
+	}
+
+	proxy := httputil.NewSingleHostReverseProxy(remote)
+	proxy.Director = func(req *http.Request) {
+		req.Header = c.Request.Header
+		req.Host = remote.Host
+		req.URL.Scheme = remote.Scheme
+		req.URL.Host = remote.Host
+		req.URL.Path = c.Param("proxyPath")
+	}
+
+	proxy.ServeHTTP(c.Writer, c.Request)
 }
