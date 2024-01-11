@@ -8,6 +8,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"path"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rwth-acis/modernizer/weaviate"
@@ -113,7 +114,7 @@ func proxy(c *gin.Context) {
 		req.Host = remote.Host
 		req.URL.Scheme = remote.Scheme
 		req.URL.Host = remote.Host
-		req.URL.Path = "chatbot/" + c.Param("proxyPath")
+		req.URL.Path = path.Join("/chatbot", c.Param("proxyPath"))
 	}
 
 	proxy.ServeHTTP(c.Writer, c.Request)
