@@ -113,7 +113,7 @@ func proxy(c *gin.Context) {
 		req.Host = remote.Host
 		req.URL.Scheme = remote.Scheme
 		req.URL.Host = remote.Host
-		req.URL.Path = c.Param("proxyPath")
+		req.URL.Path = "chatbot/" + c.Param("proxyPath")
 	}
 
 	proxy.ServeHTTP(c.Writer, c.Request)
