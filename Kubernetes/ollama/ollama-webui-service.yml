@@ -3,7 +3,6 @@ kind: Service
 metadata:
   name: ollama-webui-service
 spec:
-  type: NodePort  # Use LoadBalancer if you're on a cloud that supports it
   selector:
     app: ollama-webui
   ports:

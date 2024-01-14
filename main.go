@@ -8,7 +8,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"path"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rwth-acis/modernizer/weaviate"
@@ -39,8 +38,6 @@ func main() {
 	})
 
 	router.Any("/ollama/*proxyPath", proxyLog)
-
-	router.Any("/chatbot/*proxyPath", proxy)
 
 	err = router.Run(":8080")
 	if err != nil {
@@ -103,7 +100,7 @@ func (w *responseWriterInterceptor) Write(b []byte) (int, error) {
 }
 
 func proxy(c *gin.Context) {
-	remote, err := url.Parse(os.Getenv("WEBUI_URL"))
+	remote, err := url.Parse(os.Getenv("OLLAMA_URL"))
 	if err != nil {
 		panic(err)
 	}
@@ -114,7 +111,7 @@ func proxy(c *gin.Context) {
 		req.Host = remote.Host
 		req.URL.Scheme = remote.Scheme
 		req.URL.Host = remote.Host
-		req.URL.Path = path.Join("/chatbot", c.Param("proxyPath"))
+		req.URL.Path = c.Param("proxyPath")
 	}
 
 	proxy.ServeHTTP(c.Writer, c.Request)

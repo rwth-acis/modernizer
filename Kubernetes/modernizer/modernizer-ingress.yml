@@ -28,14 +28,7 @@ spec:
                 name: modernizer-backend-service
                 port:
                   number: 443
-          - path: /chatbot(/|$)(.*)
-            pathType: Prefix
-            backend:
-              service:
-                name: ollama-webui-service
-                port:
-                  number: 8080
-          - path: /ollama-debug(/|$)(.*)
+          - path: /debug-ollama(/|$)(.*)
             pathType: Prefix
             backend:
               service:
