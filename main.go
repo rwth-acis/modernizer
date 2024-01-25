@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"log"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rwth-acis/modernizer/ollama"
 	"github.com/rwth-acis/modernizer/weaviate"
 )
 
@@ -45,6 +47,13 @@ func main() {
 	}
 }
 
+// RequestBody represents the structure of the JSON request body
+type RequestBody struct {
+	Model  string `json:"model"`
+	Prompt string `json:"prompt"`
+	Stream bool   `json:"stream"`
+}
+
 func proxyLog(c *gin.Context) {
 	remote, err := url.Parse(os.Getenv("OLLAMA_URL"))
 	if err != nil {
@@ -56,6 +65,11 @@ func proxyLog(c *gin.Context) {
 	requestBody, err := io.ReadAll(c.Request.Body)
 	if err != nil {
 		log.Printf("Error reading request body: %v", err)
+	}
+
+	var reqBody RequestBody
+	if err := json.Unmarshal(requestBody, &reqBody); err != nil {
+		log.Printf("Error decoding JSON request body: %v", err)
 	}
 
 	proxy := httputil.NewSingleHostReverseProxy(remote)
@@ -82,9 +96,47 @@ func proxyLog(c *gin.Context) {
 	// ServeHTTP on the proxy
 	proxy.ServeHTTP(responseWriter, c.Request)
 
+	var body = responseWriter.BodyInterceptor.Bytes()
+
+	// ResponseBody represents the structure of the JSON response body
+	type ResponseBody struct {
+		Model     string `json:"model"`
+		CreatedAt string `json:"created_at"`
+		Response  string `json:"response"`
+		Done      bool   `json:"done"`
+		Context   []int  `json:"context"`
+	}
+
+	// Unmarshal the response body into the ResponseBody struct
+	var respBody ResponseBody
+	if err := json.Unmarshal(body, &respBody); err != nil {
+		log.Printf("Error decoding JSON response body: %v", err)
+		return
+	}
+
 	// Log the request and response bodies
-	log.Printf("Request Body: %s\n", string(requestBody))
-	log.Printf("Response Body: %s\n", responseWriter.BodyInterceptor.Bytes())
+	log.Printf("Request Body: %s\n", reqBody.Prompt)
+	log.Printf("Response Body: %s\n", respBody.Response)
+
+	vector, err := ollama.CreateEmbedding(reqBody.Prompt)
+	if err != nil {
+		panic(err)
+	}
+
+	err = weaviate.CreateObject(vector, reqBody.Prompt, "Prompt")
+	if err != nil {
+		panic(err)
+	}
+
+	vector, err = ollama.CreateEmbedding(respBody.Response)
+	if err != nil {
+		panic(err)
+	}
+
+	err = weaviate.CreateObject(vector, respBody.Response, "Response")
+	if err != nil {
+		panic(err)
+	}
 }
 
 // responseWriterInterceptor is a custom ResponseWriter to intercept the response body

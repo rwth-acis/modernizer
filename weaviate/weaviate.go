@@ -3,8 +3,9 @@ package weaviate
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"log"
 	"os"
+	"strings"
 
 	"github.com/weaviate/weaviate-go-client/v4/weaviate"
 	"github.com/weaviate/weaviate-go-client/v4/weaviate/auth"
@@ -62,9 +63,33 @@ func CreateSchema(className string, description string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Println("created class")
+		log.Println("created class")
 	} else {
-		fmt.Println("class already exists")
+		log.Println("class already exists")
+	}
+
+	return nil
+}
+
+func CreateObject(vector []float32, body string, class string) error {
+
+	client, err := loadClient()
+	if err != nil {
+		return err
+	}
+
+	dataSchema := map[string]interface{}{
+		strings.ToLower(class): body,
+	}
+
+	_, err = client.Data().Creator().
+		WithClassName(class).
+		WithProperties(dataSchema).
+		WithVector(vector).
+		Do(context.Background())
+
+	if err != nil {
+		return err
 	}
 
 	return nil
