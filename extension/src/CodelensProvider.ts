@@ -2,12 +2,13 @@ import * as vscode from 'vscode';
 
 export class CodelensProvider implements vscode.CodeLensProvider {
     private codeLenses: vscode.CodeLens[] = [];
-    private regex: RegExp;
+    private readonly regex: RegExp;
     private _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
     public readonly onDidChangeCodeLenses: vscode.Event<void> = this._onDidChangeCodeLenses.event;
 
     constructor() {
-        this.regex = /\bfunc\b\s+([a-zA-Z_]\w*)/g;
+        // Updated regular expression to include more top-level keywords
+        this.regex = /\b(?:func|type|var|const)\b\s+([a-zA-Z_]\w*)/g;
 
         vscode.workspace.onDidChangeConfiguration((_) => {
             this._onDidChangeCodeLenses.fire();
@@ -24,16 +25,26 @@ export class CodelensProvider implements vscode.CodeLensProvider {
                 const line = document.lineAt(document.positionAt(matches.index).line);
                 const indexOf = line.text.indexOf(matches[0]);
                 const position = new vscode.Position(line.lineNumber, indexOf);
-                const range = document.getWordRangeAtPosition(position, /\bfunc\b\s+[a-zA-Z_]\w*/);
+                const range = document.getWordRangeAtPosition(position, /\b(?:func|type|var|const)\b\s+[a-zA-Z_]\w*/);
                 if (range) {
                     const codeLens = new vscode.CodeLens(range);
+                    
                     codeLens.command = {
-                        title: `Generate Prompt for function '${functionName}'`,
-                        tooltip: "A randomized and pre-built prompt will be sent to an LLM to explain this function",
+                        title: `Generate Prompt for '${matches[0]}'`,
+                        tooltip: `A randomized and pre-built prompt will be sent to an LLM to explain '${matches[0]}'`,
                         command: "modernizer-vscode.codelensAction",
                         arguments: [range, functionName]
                     };
-                    this.codeLenses.push(codeLens);
+
+                    const codeLens2 = new vscode.CodeLens(range);
+                    codeLens2.command = {
+                        title: `Retrieve similar prompts for '${matches[0]}'`,
+                        tooltip: `A randomized and pre-built prompt will be sent to an LLM to retrieve similar prompts for '${matches[0]}'`,
+                        command: "modernizer-vscode.codelensAction",
+                        arguments: [range, functionName]
+                    };
+
+                    this.codeLenses.push(codeLens, codeLens2);
                 }
             }
             return this.codeLenses;
