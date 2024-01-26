@@ -28,7 +28,7 @@ spec:
                 name: modernizer-backend-service
                 port:
                   number: 443
-          - path: /debug-ollama(/|$)(.*)
+          - path: /debug(/|$)(.*)
             pathType: Prefix
             backend:
               service:

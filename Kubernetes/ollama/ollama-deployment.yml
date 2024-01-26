@@ -27,7 +27,7 @@ spec:
           lifecycle:
             postStart:
               exec:
-                command: ["ollama", "run", "codellama:7b-instruct"]
+                command: ["ollama", "run", "starcoder:3b"]
       volumes:
         - name: ollama-volume
           persistentVolumeClaim:
