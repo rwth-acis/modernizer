@@ -14,7 +14,7 @@ func CreateEmbedding(prompt string) ([]float32, error) {
 	url := os.Getenv("OLLAMA_URL") + "/api/embeddings"
 
 	data := map[string]interface{}{
-		"model":  "codellama:13b-instruct",
+		"model":  os.Getenv("OLLAMA_MODEL"),
 		"prompt": prompt,
 	}
 
