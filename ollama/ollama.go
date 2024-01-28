@@ -3,11 +3,15 @@ package ollama
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/rwth-acis/modernizer/weaviate"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
+	"time"
 )
 
 func CreateEmbedding(prompt string) ([]float32, error) {
@@ -42,7 +46,6 @@ func CreateEmbedding(prompt string) ([]float32, error) {
 		}
 	}(resp.Body)
 
-	// Print the response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
@@ -74,4 +77,106 @@ func CreateEmbedding(prompt string) ([]float32, error) {
 	}
 
 	return embeddingVector, nil
+}
+
+func GenerateResponse(prompt map[string]interface{}) (string, error) {
+	url := os.Getenv("OLLAMA_URL") + "/api/generate"
+
+	var promptDB = []string{
+		"Explain me this: ",
+		"How does the following code work? ",
+		"Explain me like I am five what this code does?",
+		"You are a senior developer and are responsible for providing thoughtful and concise documentation. Write documentation for the following code: ",
+	}
+
+	source := rand.NewSource(time.Now().UnixNano())
+	rng := rand.New(source)
+	randomIndex := rng.Intn(len(promptDB))
+
+	chosenPrompt := promptDB[randomIndex]
+	log.Printf("Prompt: %s\n", chosenPrompt)
+
+	code, ok := prompt["prompt"].(string)
+	if !ok {
+		return "", errors.New("prompt field is not a string")
+	}
+
+	log.Printf("Code: %s\n", code)
+
+	// Prepend the random sentence to the code
+	completePrompt := chosenPrompt + code
+
+	// Create the JSON request body
+	requestBody := map[string]interface{}{
+		"model":  prompt["model"],
+		"prompt": completePrompt,
+		"stream": prompt["stream"],
+	}
+
+	// Convert the request body to JSON
+	jsonData, err := json.Marshal(requestBody)
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+
+		}
+	}(resp.Body)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	var responseJSON map[string]interface{}
+	err = json.Unmarshal(body, &responseJSON)
+	if err != nil {
+		fmt.Println("Error decoding JSON response:", err)
+		return "", err
+	}
+
+	response, ok := responseJSON["response"].(string)
+	if !ok {
+		log.Println("Error: 'response' field is not a string array")
+		return "", errors.New("invalid response format")
+	}
+
+	log.Printf("Reponse: %s\n", response)
+
+	vector, err := CreateEmbedding(code)
+	if err != nil {
+		return "", err
+	}
+
+	err = weaviate.CreatePromptObject(vector, chosenPrompt, code, "Prompt")
+	if err != nil {
+		return "", err
+	}
+
+	vector, err = CreateEmbedding(response)
+	if err != nil {
+		return "", err
+	}
+
+	err = weaviate.CreateResponseObject(vector, response, "Response")
+	if err != nil {
+		return "", err
+	}
+
+	return response, nil
 }
