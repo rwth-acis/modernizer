@@ -4,7 +4,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rwth-acis/modernizer/ollama"
 	"github.com/rwth-acis/modernizer/weaviate"
+	"log"
 	"net/http"
+	"net/url"
+	"strconv"
 )
 
 func main() {
@@ -26,7 +29,26 @@ func main() {
 		c.Data(http.StatusOK, "application/json; charset=utf-8", schema)
 	})
 
-	router.GET("/weaviate/promptcount")
+	router.GET("/weaviate/promptcount", func(c *gin.Context) {
+		searchQuery := c.Query("query")
+
+		// Decode the search query
+		decodedQuery, err := url.QueryUnescape(searchQuery)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid search query"})
+			return
+		}
+
+		log.Printf("Decoded Query: %s", decodedQuery)
+
+		count, err := weaviate.RetrievePromptCount(decodedQuery)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.Data(http.StatusOK, "text/plain; charset=utf-8", []byte(strconv.Itoa(count)))
+	})
 
 	router.POST("/generate", func(c *gin.Context) {
 		// Parse the JSON request body

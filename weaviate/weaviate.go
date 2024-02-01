@@ -3,6 +3,9 @@ package weaviate
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"github.com/weaviate/weaviate-go-client/v4/weaviate/filters"
+	"github.com/weaviate/weaviate-go-client/v4/weaviate/graphql"
 	"log"
 	"os"
 	"strings"
@@ -183,6 +186,72 @@ func CreateResponseObject(vector []float32, response string, class string) error
 	}
 
 	return nil
+}
+
+func RetrievePromptCount(code string) (int, error) {
+	client, err := loadClient()
+	if err != nil {
+		return 0, err
+	}
+
+	count := graphql.Field{
+		Name: "code", Fields: []graphql.Field{
+			{Name: "count"},
+		},
+	}
+
+	where := filters.Where().
+		WithPath([]string{"code"}).
+		WithOperator(filters.Like).
+		WithValueText(code)
+
+	ctx := context.Background()
+	result, err := client.GraphQL().Aggregate().
+		WithClassName("Prompt").
+		WithFields(count).
+		WithWhere(where).
+		Do(ctx)
+	if err != nil {
+		panic(err)
+	}
+
+	if len(result.Errors) > 0 {
+		return 0, errors.New(result.Errors[0].Message)
+	}
+
+	log.Printf("%v", result)
+
+	getPrompt, ok := result.Data["Aggregate"].(map[string]interface{})
+	if !ok {
+		return 0, errors.New("unexpected response format: 'Aggregate' field not found or not a map")
+	}
+
+	promptData, ok := getPrompt["Prompt"].([]interface{})
+	if !ok || len(promptData) == 0 {
+		return 0, errors.New("unexpected response format: 'Prompt' field not found or not a list")
+	}
+
+	prompt := promptData[0].(map[string]interface{})
+	if !ok {
+		return 0, errors.New("unexpected response format: prompt data is not a map")
+	}
+
+	codeMap, ok := prompt["code"].(map[string]interface{})
+	if !ok {
+		return 0, errors.New("code field not found in prompt data or not a map")
+	}
+
+	countValue, ok := codeMap["count"]
+	if !ok {
+		return 0, errors.New("count not found in code map")
+	}
+
+	countFloat, ok := countValue.(float64)
+	if !ok {
+		return 0, errors.New("count is not a number")
+	}
+
+	return int(countFloat), nil
 }
 
 func CreateObject(vector []float32, body string, class string) error {

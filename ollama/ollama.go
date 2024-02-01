@@ -83,10 +83,25 @@ func GenerateResponse(prompt map[string]interface{}) (string, error) {
 	url := os.Getenv("OLLAMA_URL") + "/api/generate"
 
 	var promptDB = []string{
-		"Explain me this: ",
-		"How does the following code work? ",
+		"Explain me this:",
+		"How does the following code work?",
 		"Explain me like I am five what this code does?",
-		"You are a senior developer and are responsible for providing thoughtful and concise documentation. Write documentation for the following code: ",
+		"You are a senior developer and are responsible for providing thoughtful and concise documentation. Write documentation for the following code:",
+		"Explain me what this piece of code does like angry Linux Torvalds on Linux kernel code reviews:",
+		"Can you break down the underlying concepts behind this code snippet?",
+		"Describe the architectural decisions made in this code.",
+		"How does this code align with best practices in software engineering?",
+		"Discuss potential optimizations and performance improvements for this code.",
+		"What security considerations should be taken into account when using this code?",
+		"Consider how this code could be adapted for different use cases.",
+		"Examine the impact of different input data on the code's behavior.",
+		"Evaluate the scalability of this code for large-scale applications.",
+		"How my WTFs per minute does this code generate?",
+		"Explain this code as if you were a wizard casting a spell.",
+		"Pretend you're a detective solving a mystery related to this code.",
+		"Imagine this code as a recipe for a bizarre culinary dish.",
+		"Describe this code using only emojis and internet slang.",
+		"Interpret this code through the lens of a conspiracy theorist uncovering hidden messages.",
 	}
 
 	source := rand.NewSource(time.Now().UnixNano())
@@ -104,7 +119,7 @@ func GenerateResponse(prompt map[string]interface{}) (string, error) {
 	log.Printf("Code: %s\n", code)
 
 	// Prepend the random sentence to the code
-	completePrompt := chosenPrompt + code
+	completePrompt := chosenPrompt + " " + code
 
 	// Create the JSON request body
 	requestBody := map[string]interface{}{
