@@ -76,11 +76,14 @@ func CreateEmbedding(prompt string) ([]float32, error) {
 		}
 	}
 
-	return embeddingVector, nil
+	return nil, nil
 }
 
 func GenerateResponse(prompt map[string]interface{}) (string, error) {
 	url := os.Getenv("OLLAMA_URL") + "/api/generate"
+
+	//TODO add possibility to differentiate between system prompt roles/creativity
+	//TODO add routes to show and add prompts
 
 	var promptDB = []string{
 		"Explain me this:",
@@ -96,12 +99,13 @@ func GenerateResponse(prompt map[string]interface{}) (string, error) {
 		"Consider how this code could be adapted for different use cases.",
 		"Examine the impact of different input data on the code's behavior.",
 		"Evaluate the scalability of this code for large-scale applications.",
-		"How my WTFs per minute does this code generate?",
+		"How many WTFs per minute does this code generate?",
 		"Explain this code as if you were a wizard casting a spell.",
 		"Pretend you're a detective solving a mystery related to this code.",
 		"Imagine this code as a recipe for a bizarre culinary dish.",
 		"Describe this code using only emojis and internet slang.",
 		"Interpret this code through the lens of a conspiracy theorist uncovering hidden messages.",
+		"As the responsible senior engineer, what technical debt does this code have?",
 	}
 
 	source := rand.NewSource(time.Now().UnixNano())
@@ -178,7 +182,7 @@ func GenerateResponse(prompt map[string]interface{}) (string, error) {
 		return "", err
 	}
 
-	err = weaviate.CreatePromptObject(vector, chosenPrompt, code, "Prompt")
+	PromptID, err := weaviate.CreatePromptObject(vector, chosenPrompt, code, "Prompt")
 	if err != nil {
 		return "", err
 	}
@@ -188,9 +192,14 @@ func GenerateResponse(prompt map[string]interface{}) (string, error) {
 		return "", err
 	}
 
-	err = weaviate.CreateResponseObject(vector, response, "Response")
+	ResponseID, err := weaviate.CreateResponseObject(vector, response, "Response")
 	if err != nil {
 		return "", err
+	}
+
+	err = weaviate.CreateReferences(PromptID, ResponseID)
+	if err != nil {
+		panic(err)
 	}
 
 	return response, nil

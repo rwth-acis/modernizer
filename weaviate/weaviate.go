@@ -43,45 +43,7 @@ func InitSchema() error {
 		return err
 	}
 
-	exists, err := client.Schema().ClassExistenceChecker().WithClassName("Prompt").Do(context.Background())
-	if err != nil {
-		return err
-	}
-
-	if !exists {
-		classObj := &models.Class{
-			Class:       "Prompt",
-			Description: "This class holds information regarding the prompt, code and count of queries regarding ones codebase",
-			Vectorizer:  "none",
-			Properties: []*models.Property{
-				{
-					DataType:    []string{"text"},
-					Description: "The specific instruct or question prepended to the code",
-					Name:        "instruct",
-				},
-				{
-					DataType:    []string{"text"},
-					Description: "The code which is targeted in the prompt",
-					Name:        "code",
-				},
-				{
-					DataType:    []string{"int"},
-					Description: "number of times that this particular code has been referenced",
-					Name:        "count",
-				},
-			},
-		}
-
-		err = client.Schema().ClassCreator().WithClass(classObj).Do(context.Background())
-		if err != nil {
-			return err
-		}
-		log.Println("created class")
-	} else {
-		log.Println("class already exists")
-	}
-
-	exists, err = client.Schema().ClassExistenceChecker().WithClassName("Response").Do(context.Background())
+	exists, err := client.Schema().ClassExistenceChecker().WithClassName("Response").Do(context.Background())
 	if err != nil {
 		return err
 	}
@@ -109,9 +71,46 @@ func InitSchema() error {
 		if err != nil {
 			return err
 		}
-		log.Println("created class")
+		log.Println("created Response class")
 	} else {
-		log.Println("class already exists")
+		log.Println("Response class already exists")
+	}
+
+	exists, err = client.Schema().ClassExistenceChecker().WithClassName("Prompt").Do(context.Background())
+	if err != nil {
+		return err
+	}
+
+	if !exists {
+		classObj := &models.Class{
+			Class:       "Prompt",
+			Description: "This class holds information regarding the prompt, code and count of queries regarding ones codebase",
+			Properties: []*models.Property{
+				{
+					DataType:    []string{"text"},
+					Description: "The specific instruct or question prepended to the code",
+					Name:        "instruct",
+				},
+				{
+					DataType:    []string{"text"},
+					Description: "The code which is targeted in the prompt",
+					Name:        "code",
+				},
+				{
+					DataType: []string{"Response"},
+					Name:     "hasResponse",
+				},
+			},
+			Vectorizer: "none",
+		}
+
+		err = client.Schema().ClassCreator().WithClass(classObj).Do(context.Background())
+		if err != nil {
+			return err
+		}
+		log.Println("created Prompt class")
+	} else {
+		log.Println("Prompt class already exists")
 	}
 
 	return nil
@@ -140,52 +139,51 @@ func createClass(className, description, vectorizer string, properties []*models
 	return nil
 }
 
-func CreatePromptObject(vector []float32, prompt string, code string, class string) error {
+func CreatePromptObject(vector []float32, prompt string, code string, class string) (string, error) {
 	client, err := loadClient()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	dataSchema := map[string]interface{}{
-		strings.ToLower(class): prompt,
-		"code":                 code,
-		"count":                1,
+		"instruct": prompt,
+		"code":     code,
 	}
 
-	_, err = client.Data().Creator().
+	weaviateObject, err := client.Data().Creator().
 		WithClassName(class).
 		WithProperties(dataSchema).
 		WithVector(vector).
 		Do(context.Background())
-
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+	return string(weaviateObject.Object.ID), nil
 }
 
-func CreateResponseObject(vector []float32, response string, class string) error {
+func CreateResponseObject(vector []float32, response string, class string) (string, error) {
 	client, err := loadClient()
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	dataSchema := map[string]interface{}{
 		strings.ToLower(class): response,
+		"rank":                 1,
 	}
 
-	_, err = client.Data().Creator().
+	weaviateObject, err := client.Data().Creator().
 		WithClassName(class).
 		WithProperties(dataSchema).
 		WithVector(vector).
 		Do(context.Background())
 
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+	return string(weaviateObject.Object.ID), nil
 }
 
 func RetrievePromptCount(code string) (int, error) {
@@ -218,8 +216,6 @@ func RetrievePromptCount(code string) (int, error) {
 	if len(result.Errors) > 0 {
 		return 0, errors.New(result.Errors[0].Message)
 	}
-
-	log.Printf("%v", result)
 
 	getPrompt, ok := result.Data["Aggregate"].(map[string]interface{})
 	if !ok {
@@ -289,4 +285,26 @@ func loadClient() (*weaviate.Client, error) {
 		return nil, err
 	}
 	return client, nil
+}
+
+func CreateReferences(PromptID string, ResponseID string) error {
+	client, err := loadClient()
+	if err != nil {
+		return err
+	}
+
+	err = client.Data().ReferenceCreator().
+		WithClassName("Prompt").
+		WithID(PromptID).
+		WithReferenceProperty("hasResponse").
+		WithReference(client.Data().ReferencePayloadBuilder().
+			WithClassName("Response").
+			WithID(ResponseID).
+			Payload()).
+		Do(context.Background())
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
