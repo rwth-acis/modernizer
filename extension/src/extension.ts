@@ -42,14 +42,14 @@ export function activate(context: ExtensionContext) {
 			const functionCode = activeEditor.document.getText(selectedFunctionRange);
 	
 			// Send the function code as a prompt to the Ollama API
-			const response = await fetch('https://modernizer.milki-psy.dbis.rwth-aachen.de/ollama/api/generate', {
+			const response = await fetch('https://modernizer.milki-psy.dbis.rwth-aachen.de/generate', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
-					model: 'codellama:7b-instruct',
-					prompt: `What does this function do: '${functionCode}'`,
+					model: 'codellama:13b-instruct',
+					prompt: `${functionCode}`,
 					stream: false
 				})
 			});
@@ -60,7 +60,7 @@ export function activate(context: ExtensionContext) {
 					if (contentType && contentType.includes('application/json')) {
 						// Parse and display the Ollama response
 						const responseBody = await response.json();
-						const responseText = responseBody.response || 'No response field found';
+						const responseText = responseBody || 'No response field found';
 	
 						const outputWindow = vscode.window.createOutputChannel('Ollama Response');
 						outputWindow.show(true);
@@ -83,6 +83,7 @@ export function activate(context: ExtensionContext) {
 
 	
 }
+
 
 // this method is called when your extension is deactivated
 export function deactivate() {

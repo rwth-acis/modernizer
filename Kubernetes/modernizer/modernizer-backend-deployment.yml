@@ -20,11 +20,11 @@ spec:
         imagePullPolicy: Always
         env:
           - name: OLLAMA_URL
-            value: "http://ollama-service.ba-kovacevic:11434"
+            value: "https://quagga-crack-bluejay.ngrok-free.app"
           - name: WEAVIATE_HOST
             value: "weaviate.ba-kovacevic:80"
           - name: OLLAMA_MODEL
-            value: "starcoder:3b"
+            value: "codellama:13b-instruct"
           - name: WEAVIATE_KEY
             valueFrom:
               secretKeyRef:

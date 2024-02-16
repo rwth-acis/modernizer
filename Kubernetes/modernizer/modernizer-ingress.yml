@@ -3,7 +3,6 @@ apiVersion: networking.k8s.io/v1
 metadata:
   name: modernizer-ingress
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /$2$3
     nginx.ingress.kubernetes.io/use-regex: 'true'
 spec:
   tls:
@@ -14,27 +13,13 @@ spec:
     - host: modernizer.milki-psy.dbis.rwth-aachen.de
       http:
         paths:
-          - path: /()(ollama)(.*)
+          - path: /(.*)
             pathType: Prefix
             backend:
               service:
                 name: modernizer-backend-service
                 port:
                   number: 443
-          - path: /()(weaviate)(.*)
-            pathType: Prefix
-            backend:
-              service:
-                name: modernizer-backend-service
-                port:
-                  number: 443
-          - path: /debug(/|$)(.*)
-            pathType: Prefix
-            backend:
-              service:
-                name: ollama-service
-                port:
-                  number: 11434
 status:
   loadBalancer:
     ingress:
