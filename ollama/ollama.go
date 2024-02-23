@@ -177,22 +177,12 @@ func GenerateResponse(prompt map[string]interface{}) (string, error) {
 
 	log.Printf("Reponse: %s\n", response)
 
-	vector, err := CreateEmbedding(code)
+	PromptID, err := weaviate.CreatePromptObject(chosenPrompt, code, "Prompt")
 	if err != nil {
 		return "", err
 	}
 
-	PromptID, err := weaviate.CreatePromptObject(vector, chosenPrompt, code, "Prompt")
-	if err != nil {
-		return "", err
-	}
-
-	vector, err = CreateEmbedding(response)
-	if err != nil {
-		return "", err
-	}
-
-	ResponseID, err := weaviate.CreateResponseObject(vector, response, "Response")
+	ResponseID, err := weaviate.CreateResponseObject(response, "Response")
 	if err != nil {
 		return "", err
 	}
