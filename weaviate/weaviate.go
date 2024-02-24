@@ -18,27 +18,6 @@ import (
 	"github.com/weaviate/weaviate/entities/models"
 )
 
-func RetrieveSchema() ([]byte, error) {
-
-	client, err := loadClient()
-	if err != nil {
-		return nil, err
-	}
-
-	// Retrieve the schema
-	allSchemas, err := client.Schema().Getter().Do(context.Background())
-	if err != nil {
-		return nil, err
-	}
-
-	jsonSchema, err := json.MarshalIndent(allSchemas, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-
-	return jsonSchema, nil
-}
-
 func InitSchema() error {
 
 	client, err := loadClient()

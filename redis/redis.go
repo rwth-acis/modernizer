@@ -23,11 +23,33 @@ func InitRedis() {
 	ctx := context.Background()
 	rdb := loadClient()
 
-	members := []interface{}{"Explain me this:", "How does the following code work?"}
+	members := []interface{}{
+		"Explain me this:",
+		"How does the following code work?",
+	}
+
 	rdb.SAdd(ctx, "default", members...)
+
+	members = []interface{}{
+		"What security considerations should be taken into account when using this code?",
+		"Are there any security problems in this code:",
+	}
+
+	rdb.SAdd(ctx, "security", members...)
+
+	members = []interface{}{
+		"Explain me what this piece of code does like angry Linux Torvalds on Linux kernel code reviews:",
+		"Explain this code as if you were a wizard casting a spell.",
+		"Pretend you're a detective solving a mystery related to this code.",
+		"Explain this code as if you were a teacher explaining a concept to a student.",
+		"Describe this code using only emojis and internet slang.",
+	}
+
+	rdb.SAdd(ctx, "funny", members...)
+
 }
 
-func addItem(c *gin.Context) {
+func AddInstruct(c *gin.Context) {
 
 	rdb := loadClient()
 
@@ -56,26 +78,24 @@ func addItem(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func deleteItem(c *gin.Context) {
+func DeleteInstruct(c *gin.Context) {
 
 	rdb := loadClient()
 
 	var requestData struct {
 		Item string `json:"item"`
-		List string `json:"list,omitempty"`
+		Set  string `json:"set,omitempty"`
 	}
 	if err := c.ShouldBindJSON(&requestData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
 
-	// Set the default list name to "default" if not provided.
-	listName := requestData.List
+	listName := requestData.Set
 	if listName == "" {
 		listName = "default"
 	}
 
-	// Remove the item from the specified redis set.
 	ctx := context.Background()
 	if err := rdb.SRem(ctx, listName, requestData.Item).Err(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -85,35 +105,36 @@ func deleteItem(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func GetList(c *gin.Context) {
-
+// GetSet retrieves the whole set from Redis
+func GetSet(setName string) ([]string, error) {
 	rdb := loadClient()
 
-	listName := c.Query("list")
-	getAll := c.Query("all") == "true"
-
-	if listName == "" {
-		listName = "default"
-	}
-
-	if getAll {
-		ctx := context.Background()
-		vals, err := rdb.SMembers(ctx, listName).Result()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{"list": listName, "objects": vals})
-		return
+	if setName == "" {
+		setName = "default"
 	}
 
 	ctx := context.Background()
-	vals, err := rdb.SRandMember(ctx, listName).Result()
+	vals, err := rdb.SMembers(ctx, setName).Result()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		return nil, err
 	}
 
-	c.JSON(http.StatusOK, gin.H{"list": listName, "objects": vals})
+	return vals, nil
+}
+
+// GetSetMember retrieves a single member from Redis
+func GetSetMember(setName string) (string, error) {
+	rdb := loadClient()
+
+	if setName == "" {
+		setName = "default"
+	}
+
+	ctx := context.Background()
+	val, err := rdb.SRandMember(ctx, setName).Result()
+	if err != nil {
+		return "", err
+	}
+
+	return val, nil
 }

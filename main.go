@@ -23,16 +23,6 @@ func main() {
 
 	router := gin.Default()
 
-	router.GET("/weaviate/schema", func(c *gin.Context) {
-		schema, err := weaviate.RetrieveSchema()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
-		c.Data(http.StatusOK, "application/json; charset=utf-8", schema)
-	})
-
 	router.GET("/weaviate/promptcount", func(c *gin.Context) {
 		searchQuery := c.Query("query")
 
@@ -111,7 +101,28 @@ func main() {
 		c.JSON(http.StatusOK, "OK")
 	})
 
-	router.GET("/get-list", redis.GetList)
+	router.GET("/get-instruct", func(c *gin.Context) {
+		setName := c.Query("set")
+		getAll := c.Query("all") == "true"
+
+		var result interface{}
+		var err error
+		if getAll {
+			result, err = redis.GetSet(setName)
+		} else {
+			result, err = redis.GetSetMember(setName)
+		}
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"result": result})
+	})
+
+	router.POST("/add-instruct", redis.AddInstruct)
+	router.POST("/del-instruct", redis.DeleteInstruct)
 
 	err = router.Run(":8080")
 	if err != nil {

@@ -5,14 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/rwth-acis/modernizer/redis"
+	"github.com/rwth-acis/modernizer/weaviate"
 	"io"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
-	"time"
-
-	"github.com/rwth-acis/modernizer/weaviate"
 )
 
 func CreateEmbedding(prompt string) ([]float32, error) {
@@ -86,35 +84,12 @@ func GenerateResponse(prompt map[string]interface{}) (string, error) {
 	// TODO add possibility to differentiate between system prompt roles/creativity
 	// TODO add routes to show and add prompts
 
-	var promptDB = []string{
-		"Explain me this:",
-		"How does the following code work?",
-		"Explain me like I am five what this code does?",
-		"You are a senior developer and are responsible for providing thoughtful and concise documentation. Write documentation for the following code:",
-		"Explain me what this piece of code does like angry Linux Torvalds on Linux kernel code reviews:",
-		"Can you break down the underlying concepts behind this code snippet?",
-		"Describe the architectural decisions made in this code.",
-		"How does this code align with best practices in software engineering?",
-		"Discuss potential optimizations and performance improvements for this code.",
-		"What security considerations should be taken into account when using this code?",
-		"Consider how this code could be adapted for different use cases.",
-		"Examine the impact of different input data on the code's behavior.",
-		"Evaluate the scalability of this code for large-scale applications.",
-		"How many WTFs per minute does this code generate?",
-		"Explain this code as if you were a wizard casting a spell.",
-		"Pretend you're a detective solving a mystery related to this code.",
-		"Imagine this code as a recipe for a bizarre culinary dish.",
-		"Describe this code using only emojis and internet slang.",
-		"Interpret this code through the lens of a conspiracy theorist uncovering hidden messages.",
-		"As the responsible senior engineer, what technical debt does this code have?",
+	instruct, err := redis.GetSetMember("default")
+	if err != nil {
+		return "", err
 	}
 
-	source := rand.NewSource(time.Now().UnixNano())
-	rng := rand.New(source)
-	randomIndex := rng.Intn(len(promptDB))
-
-	chosenPrompt := promptDB[randomIndex]
-	log.Printf("Prompt: %s\n", chosenPrompt)
+	log.Printf("Prompt: %s\n", instruct)
 
 	code, ok := prompt["prompt"].(string)
 	if !ok {
@@ -123,17 +98,14 @@ func GenerateResponse(prompt map[string]interface{}) (string, error) {
 
 	log.Printf("Code: %s\n", code)
 
-	// Prepend the random sentence to the code
-	completePrompt := chosenPrompt + " " + code
+	completePrompt := instruct + " " + code
 
-	// Create the JSON request body
 	requestBody := map[string]interface{}{
 		"model":  prompt["model"],
 		"prompt": completePrompt,
 		"stream": prompt["stream"],
 	}
 
-	// Convert the request body to JSON
 	jsonData, err := json.Marshal(requestBody)
 	if err != nil {
 		return "", err
@@ -178,7 +150,7 @@ func GenerateResponse(prompt map[string]interface{}) (string, error) {
 
 	log.Printf("Reponse: %s\n", response)
 
-	PromptID, err := weaviate.CreatePromptObject(chosenPrompt, code, "Prompt")
+	PromptID, err := weaviate.CreatePromptObject(instruct, code, "Prompt")
 	if err != nil {
 		return "", err
 	}
