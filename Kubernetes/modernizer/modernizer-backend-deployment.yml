@@ -25,8 +25,17 @@ spec:
             value: "weaviate.ba-kovacevic:80"
           - name: OLLAMA_MODEL
             value: "codellama:13b-instruct"
+          - name: WEAVIATE_SCHEME
+            value: "http"
           - name: WEAVIATE_KEY
             valueFrom:
               secretKeyRef:
                 name: weaviate
                 key: API_key
+          - name: REDIS_ADDR
+            value: "my-redis-master:6379"
+          - name: REDIS_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: my-redis
+                key: redis-password

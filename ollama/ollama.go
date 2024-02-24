@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/rwth-acis/modernizer/weaviate"
 	"io"
 	"log"
 	"math/rand"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/rwth-acis/modernizer/weaviate"
 )
 
 func CreateEmbedding(prompt string) ([]float32, error) {
@@ -82,8 +83,8 @@ func CreateEmbedding(prompt string) ([]float32, error) {
 func GenerateResponse(prompt map[string]interface{}) (string, error) {
 	url := os.Getenv("OLLAMA_URL") + "/api/generate"
 
-	//TODO add possibility to differentiate between system prompt roles/creativity
-	//TODO add routes to show and add prompts
+	// TODO add possibility to differentiate between system prompt roles/creativity
+	// TODO add routes to show and add prompts
 
 	var promptDB = []string{
 		"Explain me this:",

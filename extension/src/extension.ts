@@ -42,7 +42,7 @@ export function activate(context: ExtensionContext) {
 			const functionCode = activeEditor.document.getText(selectedFunctionRange);
 	
 			// Send the function code as a prompt to the Ollama API
-			const response = await fetch('https://modernizer.milki-psy.dbis.rwth-aachen.de/generate', {
+			const response = await fetch('http://192.168.10.163:8080/generate', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'
@@ -81,6 +81,63 @@ export function activate(context: ExtensionContext) {
 		}
 	});
 
+	commands.registerCommand("modernizer-vscode.retrieveResponse", async (args: any) => {
+		try {
+			const activeEditor = vscode.window.activeTextEditor;
+			if (!activeEditor) {
+				vscode.window.showWarningMessage('No active text editor found.');
+				return;
+			}
+	
+			// Get the selected function range
+			const selectedFunctionRange = getSelectedFunctionRange(activeEditor);
+			if (!selectedFunctionRange) {
+				vscode.window.showWarningMessage('No function selected. Please select a function to generate a prompt.');
+				return;
+			}
+	
+			// Extract the function code from the range
+			const functionCode = activeEditor.document.getText(selectedFunctionRange);
+	
+			// Send the function code as a prompt to the Ollama API
+			const response = await fetch('http://192.168.10.163:8080/generate', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					model: 'codellama:13b-instruct',
+					prompt: `${functionCode}`,
+					stream: false
+				})
+			});
+	
+			if (response.ok) {
+				try {
+					const contentType = response.headers.get('content-type');
+					if (contentType && contentType.includes('application/json')) {
+						// Parse and display the Ollama response
+						const responseBody = await response.json();
+						const responseText = responseBody || 'No response field found';
+	
+						const outputWindow = vscode.window.createOutputChannel('Ollama Response');
+						outputWindow.show(true);
+						outputWindow.append(responseText);
+	
+						vscode.window.showInformationMessage(responseText);
+					} else {
+						vscode.window.showWarningMessage('Received non-JSON response. Check the API for possible errors.');
+					}
+				} catch (jsonError: any) {
+					vscode.window.showErrorMessage(`Failed to parse JSON response: ${jsonError.message}`);
+				}
+			} else {
+				vscode.window.showErrorMessage(`Failed to make request: ${response.statusText}`);
+			}
+		} catch (error: any) {
+			vscode.window.showErrorMessage(`Error: ${error.message}`);
+		}
+	});
 	
 }
 
@@ -112,7 +169,7 @@ export function getWebviewContent(responseText: string): string {
 
 
 // Helper function to get the selected function range
-function getSelectedFunctionRange(editor: vscode.TextEditor): vscode.Range | undefined {
+export function getSelectedFunctionRange(editor: vscode.TextEditor): vscode.Range | undefined {
     const selection = editor.selection;
     const document = editor.document;
 

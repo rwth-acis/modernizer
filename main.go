@@ -1,13 +1,15 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/rwth-acis/modernizer/ollama"
-	"github.com/rwth-acis/modernizer/weaviate"
 	"log"
 	"net/http"
 	"net/url"
 	"strconv"
+
+	"github.com/gin-gonic/gin"
+	"github.com/rwth-acis/modernizer/ollama"
+	"github.com/rwth-acis/modernizer/redis"
+	"github.com/rwth-acis/modernizer/weaviate"
 )
 
 func main() {
@@ -16,6 +18,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	redis.InitRedis()
 
 	router := gin.Default()
 
@@ -106,6 +110,8 @@ func main() {
 		// Return the response
 		c.JSON(http.StatusOK, "OK")
 	})
+
+	router.GET("/get-list", redis.GetList)
 
 	err = router.Run(":8080")
 	if err != nil {
