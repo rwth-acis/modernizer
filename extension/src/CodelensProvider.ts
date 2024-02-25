@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import fetch from 'node-fetch';
-import * as request from 'request';
 import { getSelectedFunctionRange } from './extension';
 
 export class CodelensProvider implements vscode.CodeLensProvider {
@@ -116,9 +115,10 @@ let disposable = vscode.commands.registerCommand('codelens.showInformation', asy
         if (selection) {
             if (selection.title.startsWith('👍')) {
                 try {
-                    await UpvotePrompt('24f040dc-960a-4024-bee7-2e24791fb519');
+                    //Vote(promptId, true);
                     vscode.window.showInformationMessage("Upvote selected");
                 } catch (error: any) { // Explicitly type 'error' as 'any'
+
                     vscode.window.showErrorMessage("Failed to upvote: " + error.message);
                 }
             } else if (selection.title.startsWith('👎')) {
@@ -144,22 +144,6 @@ async function fetchResponse(functionName: string): Promise<number | string> {
     return data;
 }
 
-async function UpvotePrompt(id: string) {
-    const requestBody = { id }; // Send the ID in the request body
-
-    const requestOptions = {
-        method: 'POST',
-        uri: 'http://192.168.10.163:8080/vote',
-        body: requestBody,
-        json: true
-    };
-
-    try {
-        await request(requestOptions);
-    } catch (error: any) { // Explicitly type 'error' as 'any'
-        throw new Error("Failed to send POST request: " + error.message);
-    }
-}
 
 export function activate(context: vscode.ExtensionContext) {
     // Register the CodeLens provider
