@@ -13,7 +13,6 @@ import (
 )
 
 func main() {
-
 	err := weaviate.InitSchema()
 	if err != nil {
 		panic(err)
@@ -66,38 +65,48 @@ func main() {
 	})
 
 	router.POST("/generate", func(c *gin.Context) {
-		// Parse the JSON request body
 		var requestBody map[string]interface{}
 		if err := c.BindJSON(&requestBody); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		// Call ollama.GenerateResponse with the parsed request body
 		response, err := ollama.GenerateResponse(requestBody)
 		if err != nil {
 			return
 		}
 
-		// Return the response
 		c.JSON(http.StatusOK, response)
 	})
-
 	router.POST("/vote", func(c *gin.Context) {
-		// Parse the JSON request body
+
+		upvoteStr := c.Query("upvote")
+		upvote := upvoteStr == "true"
+
 		var requestBody map[string]interface{}
 		if err := c.BindJSON(&requestBody); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		// Call ollama.GenerateResponse with the parsed request body
-		err := weaviate.UpdateRankPrompt(requestBody)
-		if err != nil {
-			return
+		log.Printf("%v\n", requestBody)
+
+		if upvote {
+			err := weaviate.UpdateRankPrompt(requestBody, true)
+			if err != nil {
+				log.Printf("%v", err)
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
+		} else {
+			err := weaviate.UpdateRankPrompt(requestBody, false)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				log.Printf("%v", err)
+				return
+			}
 		}
 
-		// Return the response
 		c.JSON(http.StatusOK, "OK")
 	})
 

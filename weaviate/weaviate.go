@@ -160,15 +160,68 @@ func CreatePromptObject(prompt string, code string, class string) (string, error
 	return string(weaviateObject.Object.ID), nil
 }
 
-func UpdateRankPrompt(prompt map[string]interface{}) error {
+type PromptProperties struct {
+	Code        string                   `json:"code"`
+	HasResponse []map[string]interface{} `json:"hasResponse"`
+	Instruct    string                   `json:"instruct"`
+	Rank        int                      `json:"rank"`
+}
+
+func GetProperties(id string) (PromptProperties, error) {
+
+	client, err := loadClient()
+	if err != nil {
+		return PromptProperties{}, err
+	}
+
+	objects, err := client.Data().ObjectsGetter().
+		WithID(id).
+		WithClassName("Prompt").
+		Do(context.Background())
+	if err != nil {
+		return PromptProperties{}, err
+	}
+
+	properties := objects[0].Properties
+
+	propertiesJSON, err := json.Marshal(properties)
+	if err != nil {
+		return PromptProperties{}, err
+	}
+
+	var promptProperties PromptProperties
+	err = json.Unmarshal(propertiesJSON, &promptProperties)
+	if err != nil {
+		return PromptProperties{}, err
+	}
+
+	return promptProperties, nil
+
+}
+
+func UpdateRankPrompt(prompt map[string]interface{}, upvote bool) error {
 	id, ok := prompt["id"].(string)
 	if !ok {
 		return errors.New("ID not found in request body")
 	}
 
+	log.Printf("%v\n", id)
+
 	client, err := loadClient()
 	if err != nil {
 		return err
+	}
+
+	promptProperties, err := GetProperties(id)
+	if err != nil {
+		return err
+	}
+
+	var rank int
+	if upvote {
+		rank = promptProperties.Rank + 1
+	} else {
+		rank = promptProperties.Rank - 1
 	}
 
 	err = client.Data().Updater().
@@ -176,7 +229,7 @@ func UpdateRankPrompt(prompt map[string]interface{}) error {
 		WithID(id).
 		WithClassName("Prompt").
 		WithProperties(map[string]interface{}{
-			"rank": 2,
+			"rank": rank,
 		}).
 		Do(context.Background())
 	if err != nil {
@@ -232,7 +285,7 @@ func RetrievePromptCount(code string) (int, error) {
 		WithWhere(where).
 		Do(ctx)
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
 
 	if len(result.Errors) > 0 {
