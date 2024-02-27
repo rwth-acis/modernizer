@@ -15,12 +15,18 @@ import (
 type ResponseData struct {
 	Response string `json:"response"`
 	PromptID string `json:"promptID"`
+	Instruct string `json:"instruct"`
 }
 
 func GenerateResponse(prompt map[string]interface{}) (ResponseData, error) {
 	url := os.Getenv("OLLAMA_URL") + "/api/generate"
 
-	instruct, err := redis.GetSetMember("default")
+	set, ok := prompt["instructType"].(string)
+	if !ok {
+		set = "default"
+	}
+
+	instruct, err := redis.GetSetMember(set)
 	if err != nil {
 		return ResponseData{}, errors.New("no data available")
 	}
@@ -103,6 +109,7 @@ func GenerateResponse(prompt map[string]interface{}) (ResponseData, error) {
 	responseData := ResponseData{
 		Response: response,
 		PromptID: PromptID,
+		Instruct: instruct,
 	}
 
 	return responseData, nil
