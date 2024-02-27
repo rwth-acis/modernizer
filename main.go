@@ -55,13 +55,13 @@ func main() {
 
 		log.Printf("Decoded Query: %s", decodedQuery)
 
-		response, err := weaviate.RetrieveResponse(decodedQuery)
+		response, err := weaviate.RetrieveRandomResponse(decodedQuery)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
-		c.Data(http.StatusOK, "text/plain; charset=utf-8", []byte(response))
+		c.JSON(http.StatusOK, response)
 	})
 
 	router.POST("/generate", func(c *gin.Context) {

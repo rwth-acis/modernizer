@@ -91,6 +91,11 @@ func InitSchema() error {
 					DataType:    []string{"int"},
 					Description: "The relative rank for this response against other ones regarding the same code",
 					Name:        "rank",
+					ModuleConfig: map[string]interface{}{
+						"text2vec-transformers": map[string]interface{}{
+							"skip": true,
+						},
+					},
 				},
 			},
 		}
