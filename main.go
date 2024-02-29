@@ -45,6 +45,8 @@ func main() {
 
 	router.GET("/weaviate/retrieveresponse", func(c *gin.Context) {
 		searchQuery := c.Query("query")
+		upvoteStr := c.Query("best")
+		best := upvoteStr == "true"
 
 		// Decode the search query
 		decodedQuery, err := url.QueryUnescape(searchQuery)
@@ -55,10 +57,20 @@ func main() {
 
 		log.Printf("Decoded Query: %s", decodedQuery)
 
-		response, err := weaviate.RetrieveRandomResponse(decodedQuery)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
+		var response interface{}
+
+		if best {
+			response, err = weaviate.RetrieveBestResponse(decodedQuery)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+		} else {
+			response, err = weaviate.RetrieveRandomResponse(decodedQuery)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
 		}
 
 		c.JSON(http.StatusOK, response)
