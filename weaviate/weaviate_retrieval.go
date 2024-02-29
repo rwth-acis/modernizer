@@ -7,6 +7,7 @@ import (
 	"github.com/weaviate/weaviate-go-client/v4/weaviate/filters"
 	"github.com/weaviate/weaviate-go-client/v4/weaviate/graphql"
 	"github.com/weaviate/weaviate/entities/models"
+	"log"
 	"math/rand"
 	"time"
 )
@@ -145,7 +146,10 @@ func RetrieveBestResponse(code string) (ResponseData, error) {
 			return ResponseData{}, errors.New("unexpected response format: prompt data is not a map")
 		}
 
+		log.Printf("%v", promptMap)
+
 		rankInterface, ok := promptMap["rank"]
+		log.Printf("%v", rankInterface)
 		if !ok {
 			return ResponseData{}, errors.New("rank field not found in prompt data")
 		}
@@ -255,6 +259,7 @@ func RetrieveResponsesRankDesc(code string) (*models.GraphQLResponse, error) {
 		{Name: "_additional", Fields: []graphql.Field{
 			{Name: "id"},
 		}},
+		{Name: "rank"},
 	}
 
 	where := filters.Where().
