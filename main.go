@@ -44,6 +44,9 @@ func main() {
 	})
 
 	router.GET("/weaviate/retrieveresponse", func(c *gin.Context) {
+
+		//TODO: allow user annotation
+
 		searchQuery := c.Query("query")
 		upvoteStr := c.Query("best")
 		best := upvoteStr == "true"
@@ -71,6 +74,66 @@ func main() {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
+		}
+
+		c.JSON(http.StatusOK, response)
+	})
+
+	router.GET("/weaviate/retrieveresponselist", func(c *gin.Context) {
+		searchQuery := c.Query("query")
+
+		decodedQuery, err := url.QueryUnescape(searchQuery)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid search query"})
+			return
+		}
+
+		log.Printf("Decoded Query: %s", decodedQuery)
+
+		responseList, err := weaviate.ResponseList(decodedQuery)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, responseList)
+	})
+
+	router.GET("/weaviate/responsebyid", func(c *gin.Context) {
+		searchQuery := c.Query("id")
+
+		decodedQuery, err := url.QueryUnescape(searchQuery)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid search query"})
+			return
+		}
+
+		log.Printf("Decoded Query: %s", decodedQuery)
+
+		response, err := weaviate.RetrieveResponseByID(decodedQuery)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, response)
+	})
+
+	router.GET("/weaviate/propertiesbyid", func(c *gin.Context) {
+		searchQuery := c.Query("id")
+
+		decodedQuery, err := url.QueryUnescape(searchQuery)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid search query"})
+			return
+		}
+
+		log.Printf("Decoded Query: %s", decodedQuery)
+
+		response, err := weaviate.RetrieveProperties(decodedQuery)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
 		}
 
 		c.JSON(http.StatusOK, response)

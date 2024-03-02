@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/weaviate/weaviate-go-client/v4/weaviate/filters"
 	"github.com/weaviate/weaviate-go-client/v4/weaviate/graphql"
 	"github.com/weaviate/weaviate/entities/models"
@@ -12,20 +13,7 @@ import (
 	"time"
 )
 
-type PromptProperties struct {
-	Code        string                   `json:"code"`
-	HasResponse []map[string]interface{} `json:"hasResponse"`
-	Instruct    string                   `json:"instruct"`
-	Rank        int                      `json:"rank"`
-}
-
-type ResponseData struct {
-	ID       string `json:"id"`
-	Response string `json:"response"`
-}
-
 func RetrieveProperties(id string) (PromptProperties, error) {
-
 	client, err := loadClient()
 	if err != nil {
 		return PromptProperties{}, err
@@ -39,21 +27,52 @@ func RetrieveProperties(id string) (PromptProperties, error) {
 		return PromptProperties{}, err
 	}
 
-	properties := objects[0].Properties
+	if len(objects) == 0 {
+		return PromptProperties{}, fmt.Errorf("no object found with ID: %s", id)
+	}
 
-	propertiesJSON, err := json.Marshal(properties)
+	propertiesJSON, err := json.Marshal(objects[0].Properties)
 	if err != nil {
 		return PromptProperties{}, err
 	}
 
-	var promptProperties PromptProperties
-	err = json.Unmarshal(propertiesJSON, &promptProperties)
+	var temp struct {
+		Code        string                   `json:"code"`
+		HasResponse []map[string]interface{} `json:"hasResponse"`
+		Instruct    string                   `json:"instruct"`
+		Rank        int                      `json:"rank"`
+	}
+
+	if err := json.Unmarshal(propertiesJSON, &temp); err != nil {
+		return PromptProperties{}, err
+	}
+
+	var responseText string
+	if len(temp.HasResponse) > 0 {
+		responseTextBytes, err := json.Marshal(temp.HasResponse)
+		if err != nil {
+			return PromptProperties{}, err
+		}
+		responseText = string(responseTextBytes)
+	}
+
+	response, err := RetrieveResponseByID(id)
 	if err != nil {
 		return PromptProperties{}, err
+	}
+	responseText, ok := response.(string)
+	if !ok {
+		return PromptProperties{}, fmt.Errorf("response from RetrieveResponseByID is not a string")
+	}
+
+	promptProperties := PromptProperties{
+		Code:        temp.Code,
+		HasResponse: responseText,
+		Instruct:    temp.Instruct,
+		Rank:        temp.Rank,
 	}
 
 	return promptProperties, nil
-
 }
 
 func RetrievePromptCount(code string) (int, error) {
@@ -120,6 +139,87 @@ func RetrievePromptCount(code string) (int, error) {
 	return int(countFloat), nil
 }
 
+func RetrieveResponseByID(id string) (interface{}, error) {
+	client, err := loadClient()
+	if err != nil {
+		return nil, err
+	}
+
+	fields := []graphql.Field{
+		{Name: "hasResponse", Fields: []graphql.Field{
+			{Name: "... on Response", Fields: []graphql.Field{
+				{Name: "response"},
+			}},
+		}},
+		{Name: "_additional", Fields: []graphql.Field{
+			{Name: "id"},
+		}},
+		{Name: "rank"},
+		{Name: "instruct"},
+	}
+
+	withNearObject := &graphql.NearObjectArgumentBuilder{}
+
+	withNearObject.WithID(id)
+
+	ctx := context.Background()
+	result, err := client.GraphQL().Get().
+		WithClassName("Prompt").
+		WithFields(fields...).
+		WithLimit(1).
+		WithNearObject(withNearObject).
+		Do(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := ExtractResponseFromGraphQL(result)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+
+func ResponseList(code string) ([]string, error) {
+	responses, err := RetrieveResponsesRankDesc(code)
+	if err != nil {
+		return nil, err
+	}
+
+	getPrompt, ok := responses.Data["Get"].(map[string]interface{})
+	if !ok {
+		return nil, errors.New("unexpected response format: 'Get' field not found or not a map")
+	}
+
+	promptData, ok := getPrompt["Prompt"].([]interface{})
+	if !ok {
+		return nil, errors.New("unexpected response format: 'Prompt' field not found")
+	}
+
+	if len(promptData) == 0 {
+		return nil, errors.New("no prompt found")
+	}
+
+	var RankIDs []string
+
+	for _, prompt := range promptData {
+		promptMap, ok := prompt.(map[string]interface{})
+		if !ok {
+			return nil, errors.New("unexpected response format: prompt data is not a map")
+		}
+
+		id, err := ExtractID(promptMap)
+		if err != nil {
+			return nil, err
+		}
+
+		RankIDs = append(RankIDs, id)
+	}
+
+	return RankIDs, nil
+}
+
 func RetrieveBestResponse(code string) (ResponseData, error) {
 
 	responses, err := RetrieveResponsesRankDesc(code)
@@ -145,8 +245,6 @@ func RetrieveBestResponse(code string) (ResponseData, error) {
 		if !ok {
 			return ResponseData{}, errors.New("unexpected response format: prompt data is not a map")
 		}
-
-		log.Printf("%v", promptMap)
 
 		rankInterface, ok := promptMap["rank"]
 		log.Printf("%v", rankInterface)
@@ -186,9 +284,15 @@ func RetrieveBestResponse(code string) (ResponseData, error) {
 			return ResponseData{}, err
 		}
 
+		instruct, err := ExtractInstruct(selectedPrompt)
+		if err != nil {
+			return ResponseData{}, err
+		}
+
 		responseData := ResponseData{
-			ID:       id,
+			PromptID: id,
 			Response: response,
+			Instruct: instruct,
 		}
 
 		return responseData, nil
@@ -235,9 +339,15 @@ func RetrieveRandomResponse(code string) (ResponseData, error) {
 		return ResponseData{}, err
 	}
 
+	instruct, err := ExtractInstruct(selectedPromptMap)
+	if err != nil {
+		return ResponseData{}, err
+	}
+
 	responseData := ResponseData{
-		ID:       id,
+		PromptID: id,
 		Response: response,
+		Instruct: instruct,
 	}
 
 	return responseData, nil
@@ -260,6 +370,7 @@ func RetrieveResponsesRankDesc(code string) (*models.GraphQLResponse, error) {
 			{Name: "id"},
 		}},
 		{Name: "rank"},
+		{Name: "instruct"},
 	}
 
 	where := filters.Where().
@@ -321,4 +432,41 @@ func ExtractResponse(selectedPromptMap map[string]interface{}) (string, error) {
 	}
 
 	return response, nil
+}
+
+func ExtractInstruct(selectedPrompt map[string]interface{}) (string, error) {
+	hasInstruct, ok := selectedPrompt["instruct"]
+	if !ok {
+		return "", errors.New("instruct field not found in prompt data")
+	}
+
+	instruct, ok := hasInstruct.(string)
+	if !ok {
+		return "", errors.New("id field is not a string in _additional data")
+	}
+
+	return instruct, nil
+}
+
+func ExtractResponseFromGraphQL(query *models.GraphQLResponse) (string, error) {
+	getPrompt, ok := query.Data["Get"].(map[string]interface{})
+	if !ok {
+		return "", errors.New("unexpected response format: 'Get' field not found or not a map")
+	}
+
+	promptData, ok := getPrompt["Prompt"].([]interface{})
+	if !ok || len(promptData) == 0 {
+		return "", errors.New("unexpected response format: 'Prompt' field not found or empty list")
+	}
+	selectedPrompt := promptData[0].(map[string]interface{})
+	if !ok {
+		return "", errors.New("unexpected response format: selected prompt data is not a map")
+	}
+
+	response, err := ExtractResponse(selectedPrompt)
+	if err != nil {
+		return "", err
+	}
+	return response, nil
+
 }
