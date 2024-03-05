@@ -1,15 +1,20 @@
 import * as vscode from 'vscode';
 import fetch from 'node-fetch';
 import { getSelectedFunctionRange } from './extension';
+import { Vote } from './VotingMechanism';
+
+export let remainingResponseList: string[] = [];
 
 export class CodelensProvider implements vscode.CodeLensProvider {
+
     private codeLenses: vscode.CodeLens[] = [];
     private readonly regex: RegExp;
     private readonly _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
     public readonly onDidChangeCodeLenses: vscode.Event<void> = this._onDidChangeCodeLenses.event;
 
+    
     constructor() {
-        this.regex = /\b(?:class|interface|function|method|struct|enum|protocol|package|namespace|module|let|const|var|func|type|var|const)\b\s+([a-zA-Z_]\w*)/g;
+        this.regex = /\b(?:func|type|var|const)\b\s+([a-zA-Z_]\w*)/g;
 
         vscode.workspace.onDidChangeConfiguration(() => {
             this._onDidChangeCodeLenses.fire();
@@ -17,6 +22,14 @@ export class CodelensProvider implements vscode.CodeLensProvider {
     }
 
     public async provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CodeLens[]> {
+
+        if (document.uri.scheme !== 'file') {
+            if (document.uri.scheme === 'output') {
+                return this.createOutputWindowCodeLenses(document);
+            } else {
+                return [];
+            }
+        }
         if (!vscode.workspace.getConfiguration("modernizer-vscode").get("enableCodeLens", true)) {
             return [];
         }
@@ -30,7 +43,7 @@ export class CodelensProvider implements vscode.CodeLensProvider {
             const line = document.lineAt(document.positionAt(matches.index).line);
             const indexOf = line.text.indexOf(matches[0]);
             const position = new vscode.Position(line.lineNumber, indexOf);
-            const range = document.getWordRangeAtPosition(position, /\b(?:class|interface|function|method|struct|enum|protocol|package|namespace|module|let|const|var|func|type|var|const)\b\s+([a-zA-Z_]\w*)/);
+            const range = document.getWordRangeAtPosition(position, /\b(?:func|type|var|const)\b\s+([a-zA-Z_]\w*)/);
 
             if (range) {
                 const codeLens = new vscode.CodeLens(range);
@@ -38,7 +51,7 @@ export class CodelensProvider implements vscode.CodeLensProvider {
                 codeLens.command = {
                     title: `Generate Prompt for '${matches[0]}'`,
                     tooltip: `A randomized and pre-built prompt will be sent to an LLM to explain '${matches[0]}'`,
-                    command: "modernizer-vscode.codelensAction",
+                    command: "modernizer-vscode.randomPrompt",
                     arguments: [range, functionName]
                 };
 
@@ -52,8 +65,8 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 
                 const codeLens3 = new vscode.CodeLens(range);
                 codeLens3.command = {
-                    title: "Retrieve highest ranked response",
-                    command: "codelens.showInformation",
+                    title: "Retrieve best response",
+                    command: "modernizer-vscode.showBestResponse",
                     arguments: ["How did you like this Response?", "Action 1", "Action 2"]
                 };
 
@@ -64,22 +77,96 @@ export class CodelensProvider implements vscode.CodeLensProvider {
         return this.codeLenses;
     }
 
-    public resolveCodeLens(codeLens: vscode.CodeLens, token: vscode.CancellationToken) {
-        if (!vscode.workspace.getConfiguration("modernizer-vscode").get("enableCodeLens", true)) {
-            return null;
+    private async createOutputWindowCodeLenses(document: vscode.TextDocument): Promise<vscode.CodeLens[]> {
+        const codeLenses: vscode.CodeLens[] = [];
+    
+        const text = document.getText();
+        const regex = /The instruct used for this prompt: /g;
+        let match;
+        while ((match = regex.exec(text))) {
+            const line = document.lineAt(document.positionAt(match.index).line);
+            const position = new vscode.Position(line.lineNumber, match.index);
+            const range = new vscode.Range(position, position.with(undefined, match.index + match[0].length));
+    
+            const codeLens = new vscode.CodeLens(range, {
+                title: "Show next Prompt ⮞",
+                tooltip: "Show next Prompt",
+                command: "modernizer-vscode.showNextResponse"
+            });
+
+            const gitURL = await getGitURLByID(remainingResponseList[0]);
+
+            const codeLens2 = new vscode.CodeLens(range, {
+                title: "Open GitHub Repository",
+                command: "modernizer-vscode.openGitHubRepo",
+                arguments: [gitURL]
+            });
+    
+            codeLenses.push(codeLens, codeLens2);
+        }
+    
+        return codeLenses;
+    }
+}
+
+async function getGitURLByID(id: string): Promise<string> {
+    const properties = await GetPropertiesByID(id);
+    return properties.gitURL;
+}
+
+async function getResponseList(code: string): Promise<string[]> {
+    const baseUrl: string = vscode.workspace.getConfiguration("modernizer-vscode").get("baseURL", "https://modernizer.milki-psy.dbis.rwth-aachen.de");
+    const responseListPath: string = '/weaviate/retrieveresponselist';
+    const url: string = `${baseUrl}${responseListPath}`;
+
+    const queryParams = new URLSearchParams({ query: code });
+    const urlQuery = `${url}?${queryParams.toString()}`;
+
+    const response = await fetch(urlQuery);
+    if (!response.ok) {
+        return [];
+    }
+
+    try {
+        const responseData = await response.json();
+        return responseData;
+    } catch (error) {
+        console.error("Error parsing response data:", error);
+        return [];
+    }
+}
+
+async function GetPropertiesByID(promptID: string): Promise<any> {
+    try {
+        const baseUrl: string = vscode.workspace.getConfiguration("modernizer-vscode").get("baseURL", "https://modernizer.milki-psy.dbis.rwth-aachen.de");
+        const path: string = '/weaviate/propertiesbyid';
+        const url: string = `${baseUrl}${path}`;
+
+        const queryParams = new URLSearchParams({ id: promptID });
+        const urlQuery = `${url}?${queryParams.toString()}`;
+
+        const response = await fetch(urlQuery);
+        if (!response.ok) {
+            throw new Error("Failed to fetch data");
         }
 
-        return codeLens;
+        const data = await response.json();
+        return data;
+    } catch (error : any ) {
+        throw new Error("Failed to retrieve data: " + error.message);
     }
 }
 
 async function fetchPromptCount(functionName: string): Promise<number | string> {
 
-    const promptCountURL: string = 'http://192.168.10.163:8080/weaviate/promptcount';
-    const queryParams = new URLSearchParams({ query: functionName });
-    const url = `${promptCountURL}?${queryParams.toString()}`;
+    const baseUrl: string = vscode.workspace.getConfiguration("modernizer-vscode").get("baseURL", "https://modernizer.milki-psy.dbis.rwth-aachen.de");
+    const promptCountPath: string = '/weaviate/promptcount';
+    const url: string = `${baseUrl}${promptCountPath}`;
 
-    const response = await fetch(url);
+    const queryParams = new URLSearchParams({ query: functionName });
+    const urlQuery = `${url}?${queryParams.toString()}`;
+
+    const response = await fetch(urlQuery);
     if (!response.ok) {
         return "0";
     }
@@ -88,26 +175,68 @@ async function fetchPromptCount(functionName: string): Promise<number | string> 
     return data;
 }
 
-// Register command to show information box
-let disposable = vscode.commands.registerCommand('codelens.showInformation', async () => {
+function OutputResponseVote(response: any) {
+
+    const outputWindow = vscode.window.createOutputChannel('Response');
+    outputWindow.show(true);
+    outputWindow.append("The instruct used for this prompt: " + response.instruct + "\n\n");
+    outputWindow.append(response.hasResponse);
+
+    const options = [
+        { title: `👍 Upvote` },
+        { title: `👎 Downvote` }
+    ];
+    async function voteForPrompt(response: any) {
+        const selection = await vscode.window.showInformationMessage('Vote for this prompt:', ...options);
+        if (selection) {
+            if (selection.title && selection.title.startsWith('👍')) {
+                try {
+                    Vote(response.id, true);
+                    vscode.window.showInformationMessage("Upvote selected");
+                } catch (error: any) {
+                    vscode.window.showErrorMessage("Failed to upvote: " + error.message);
+                }
+            } else if (selection.title && selection.title.startsWith('👎')) {
+                Vote(response.id, false);
+                vscode.window.showInformationMessage("Downvote selected");
+            }
+        }
+    }
+
+    voteForPrompt(response);
+}
+
+async function showResponse(isBestResponse:boolean) {
     try {
-
         const activeEditor = vscode.window.activeTextEditor;
-        if (activeEditor) {
-            const selectedFunctionRange = getSelectedFunctionRange(activeEditor);
-            const functionCode = activeEditor.document.getText(selectedFunctionRange);
-
-            // Fetch response
-            const responseText = await fetchResponse(functionCode);
-
-            // Create and show output window
-            const outputWindow = vscode.window.createOutputChannel('Ollama Response');
-            outputWindow.show(true);
-            outputWindow.append(responseText.toString());
+        if (!activeEditor) {
+            return;
         }
 
-        // Show voting options
-        const options: vscode.MessageItem[] = [
+        const selectedFunctionRange = getSelectedFunctionRange(activeEditor);
+        const functionCode = activeEditor.document.getText(selectedFunctionRange);
+
+        const responseList = await getResponseList(functionCode);
+        if (responseList.length === 0) {
+            vscode.window.showErrorMessage("No response found.");
+            return;
+        }
+
+        const firstResponseID = responseList[0];
+        const responseText = await GetPropertiesByID(firstResponseID);
+        if (!responseText) {
+            vscode.window.showErrorMessage("Failed to retrieve response.");
+            return;
+        }
+
+        const outputWindow = vscode.window.createOutputChannel(isBestResponse ? 'Best Response' : 'Random Response');
+        outputWindow.show(true);
+        outputWindow.append("The instruct used for this prompt: " + responseText.instruct + "\n\n");
+        outputWindow.append(responseText.hasResponse);
+
+        remainingResponseList = responseList.slice(1);
+
+        const options = [
             { title: `👍 Upvote` },
             { title: `👎 Downvote` }
         ];
@@ -115,41 +244,55 @@ let disposable = vscode.commands.registerCommand('codelens.showInformation', asy
         if (selection) {
             if (selection.title.startsWith('👍')) {
                 try {
-                    //Vote(promptId, true);
+                    Vote(firstResponseID, true);
                     vscode.window.showInformationMessage("Upvote selected");
-                } catch (error: any) { // Explicitly type 'error' as 'any'
-
+                } catch (error: any) {
                     vscode.window.showErrorMessage("Failed to upvote: " + error.message);
                 }
             } else if (selection.title.startsWith('👎')) {
+                Vote(firstResponseID, false);
                 vscode.window.showInformationMessage("Downvote selected");
             }
         }
     } catch (error: any) {
         vscode.window.showErrorMessage("Error: " + error.message);
     }
-});
-
-async function fetchResponse(functionName: string): Promise<number | string> {
-    const retrieveResponseURL: string = 'http://192.168.10.163:8080/weaviate/retrieveresponse';
-    const queryParams = new URLSearchParams({ query: functionName });
-    const url = `${retrieveResponseURL}?${queryParams.toString()}`;
-
-    const response = await fetch(url);
-    if (!response.ok) {
-        return "0";
-    }
-
-    const data = await response.json();
-    return data;
 }
 
+let disposableNextResponse = vscode.commands.registerCommand('modernizer-vscode.showNextResponse', async () => {
+    await showNextResponse(remainingResponseList);
+
+    remainingResponseList = remainingResponseList.slice(1);
+});
+
+let disposableBest = vscode.commands.registerCommand('modernizer-vscode.showBestResponse', async () => {
+    await showResponse(true);
+});
+
+let disposableRandom = vscode.commands.registerCommand('modernizer-vscode.showRandomResponse', async () => {
+    await showResponse(false);
+});
+
+async function showNextResponse(remainingResponseList: string[]) {
+
+    let id = remainingResponseList[0];
+    GetPropertiesByID(id)
+        .then((response) => {
+            OutputResponseVote(response);
+        });
+}
+
+vscode.commands.registerCommand('modernizer-vscode.openGitHubRepo', (url) => {
+    vscode.env.openExternal(vscode.Uri.parse(url));
+});
 
 export function activate(context: vscode.ExtensionContext) {
     // Register the CodeLens provider
     context.subscriptions.push(vscode.languages.registerCodeLensProvider('*', new CodelensProvider()));
     // Add disposables to context subscriptions
-    context.subscriptions.push(disposable);
+    context.subscriptions.push(disposableBest);
+    context.subscriptions.push(disposableRandom);
+    context.subscriptions.push(disposableNextResponse);
 }
 
 export function deactivate() {}

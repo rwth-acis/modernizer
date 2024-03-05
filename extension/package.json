@@ -2,13 +2,14 @@
     "name": "modernizer-vscode",
     "displayName": "Modernizer",
     "description": "A VSCode extension for displaying and ranking most frequently asked prompts",
-    "version": "0.0.1",
-    "publisher": "ili16",
+    "version": "1.1.0",
+    "publisher": "IlijaKovacevic",
     "author": "Ilija Kovacevic",
+    "icon": "resources/modernizer-logo.jpg",
     "homepage": "https://github.com/rwth-acis/modernizer#readme",
     "repository": {
         "type": "git",
-        "url": "github.com:rwth-acis/modernizer.git"
+        "url": "github:rwth-acis/modernizer.git"
     },
     "engines": {
         "vscode": "^1.73.0"
@@ -17,10 +18,46 @@
         "Other"
     ],
     "activationEvents": [
-        "activate"
+        "onStartup"
     ],
     "main": "./out/extension",
     "contributes": {
+        "submenus": [
+            {
+                "id": "modernizer-vscode.submenu",
+                "label": "Modernizer"
+            }
+        ],
+        "menus": {
+            "modernizer-vscode.submenu": [
+                {
+                    "command": "modernizer-vscode.showBestResponse",
+                    "group": "navigation",
+                    "when": "editorHasSelection && resourceScheme == 'file'"
+                },
+                {
+                    "command": "modernizer-vscode.showRandomResponse",
+                    "group": "navigation",
+                    "when": "editorHasSelection && resourceScheme == 'file'"
+                },
+                {
+                    "command": "modernizer-vscode.randomPrompt",
+                    "group": "navigation",
+                    "when": "editorHasSelection && resourceScheme == 'file'"
+                },
+                {
+                    "command": "modernizer-vscode.customPrompt",
+                    "group": "navigation",
+                    "when": "editorHasSelection && resourceScheme == 'file'"
+                }
+            ],
+            "editor/context": [
+                {
+                    "submenu": "modernizer-vscode.submenu",
+                    "group": "navigation"
+                }
+            ]
+        },
         "commands": [
             {
                 "title": "Enable CodeLens",
@@ -31,6 +68,36 @@
                 "title": "Disable Codelens",
                 "command": "modernizer-vscode.disableCodeLens",
                 "category": "Modernizer VSCode"
+            },
+            {
+                "title": "Show Best Response",
+                "command": "modernizer-vscode.showBestResponse",
+                "category": "Modernizer",
+                "group": "Modernizer"
+            },
+            {
+                "title": "Show Random Response",
+                "command": "modernizer-vscode.showRandomResponse",
+                "category": "Modernizer",
+                "group": "Modernizer"
+            },
+            {
+                "title": "Generate random Prompt",
+                "command": "modernizer-vscode.randomPrompt",
+                "category": "Modernizer",
+                "group": "Modernizer"
+            },
+            {
+                "title": "Generate custom Prompt",
+                "command": "modernizer-vscode.customPrompt",
+                "category": "Modernizer",
+                "group": "Modernizer"
+            },
+            {
+                "title": "Generate Link",
+                "command": "modernizer-vscode.gitURL",
+                "category": "Modernizer",
+                "group": "Modernizer"
             }
         ],
         "configuration": {
@@ -38,6 +105,11 @@
                 "modernizer-vscode.enableCodeLens": {
                     "type": "boolean",
                     "default": true
+                },
+                "modernizer-vscode.baseURL": {
+                    "type": "string",
+                    "default": "https://modernizer.milki-psy.dbis.rwth-aachen.de",
+                    "description": "The base URL for the Modernizer backend API"
                 }
             }
         }
@@ -49,6 +121,7 @@
         "watch": "tsc -watch -p ./"
     },
     "devDependencies": {
+        "@types/ini": "^4.1.0",
         "@types/node": "^16.18.34",
         "@types/node-fetch": "^2.6.10",
         "@types/request": "^2.48.12",
@@ -59,6 +132,7 @@
         "typescript": "^5.2.2"
     },
     "dependencies": {
+        "ini": "^4.1.2",
         "node-fetch": "^2.7.0"
     }
 }

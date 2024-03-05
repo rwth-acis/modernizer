@@ -28,9 +28,13 @@ export function DisplayVoting(promptId: string) {
 }
 
 export async function Vote(id: string, Upvote: boolean) {
-    const requestBody = { id }; // Send the ID in the request body
+    const requestBody = { id };
 
-    let uri = `http://192.168.10.163:8080/vote?upvote=${Upvote}`;
+    const baseUrl: string = vscode.workspace.getConfiguration("modernizer-vscode").get("baseURL", "https://modernizer.milki-psy.dbis.rwth-aachen.de");
+    const voteRoute: string = '/vote?upvote=';
+    const url: string = `${baseUrl}${voteRoute}`;
+
+    let uri = `${url}${Upvote}`;
 
     try {
         const response = await fetch(uri, {
