@@ -26,6 +26,7 @@ func InitRedis() {
 	members := []interface{}{
 		"Explain me this:",
 		"How does the following code work?",
+		"Explain me step by step how this code works:",
 	}
 
 	rdb.SAdd(ctx, "default", members...)
@@ -75,7 +76,7 @@ func AddInstruct(c *gin.Context) {
 		return
 	}
 
-	c.Status(http.StatusOK)
+	c.JSON(http.StatusOK, "added Item to list: "+listName)
 }
 
 func DeleteInstruct(c *gin.Context) {

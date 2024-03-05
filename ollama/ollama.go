@@ -12,44 +12,59 @@ import (
 	"os"
 )
 
-type ResponseData struct {
-	Response string `json:"response"`
-	PromptID string `json:"promptID"`
-}
-
-func GenerateResponse(prompt map[string]interface{}) (ResponseData, error) {
+func GenerateResponse(prompt map[string]interface{}) (weaviate.ResponseData, error) {
 	url := os.Getenv("OLLAMA_URL") + "/api/generate"
 
-	instruct, err := redis.GetSetMember("default")
-	if err != nil {
-		return ResponseData{}, errors.New("no data available")
+	set, ok := prompt["instructType"].(string)
+	if !ok {
+		set = "default"
+	}
+
+	gitURL, ok := prompt["gitURL"].(string)
+
+	log.Printf("gitURL: %s\n", gitURL)
+
+	if !ok {
+		gitURL = ""
+	}
+
+	instruct, ok := prompt["instruct"].(string)
+
+	log.Printf("ok: %v", ok)
+	if !ok {
+		instruct, _ = redis.GetSetMember(set)
 	}
 
 	log.Printf("Prompt: %s\n", instruct)
 
 	code, ok := prompt["prompt"].(string)
 	if !ok {
-		return ResponseData{}, errors.New("prompt field is not a string")
+		return weaviate.ResponseData{}, errors.New("prompt field is not a string")
 	}
 
 	log.Printf("Code: %s\n", code)
 
 	completePrompt := instruct + " " + code
 
+	model, ok := prompt["model"].(string)
+	if !ok {
+		model = "codellama:13b-instruct"
+	}
+
 	requestBody := map[string]interface{}{
-		"model":  prompt["model"],
+		"model":  model,
 		"prompt": completePrompt,
 		"stream": false,
 	}
 
 	jsonData, err := json.Marshal(requestBody)
 	if err != nil {
-		return ResponseData{}, err
+		return weaviate.ResponseData{}, err
 	}
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return ResponseData{}, err
+		return weaviate.ResponseData{}, err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -57,7 +72,7 @@ func GenerateResponse(prompt map[string]interface{}) (ResponseData, error) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return ResponseData{}, err
+		return weaviate.ResponseData{}, err
 	}
 	defer func(Body io.ReadCloser) {
 		err := Body.Close()
@@ -68,31 +83,33 @@ func GenerateResponse(prompt map[string]interface{}) (ResponseData, error) {
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return ResponseData{}, err
+		return weaviate.ResponseData{}, err
 	}
 
 	var responseJSON map[string]interface{}
 	err = json.Unmarshal(body, &responseJSON)
 	if err != nil {
-		return ResponseData{}, err
+		return weaviate.ResponseData{}, err
 	}
 
 	response, ok := responseJSON["response"].(string)
-	if !ok {
-		log.Println("Error: 'response' field is not a string array")
-		return ResponseData{}, errors.New("invalid response format")
-	}
-
 	log.Printf("Reponse: %s\n", response)
 
-	PromptID, err := weaviate.CreatePromptObject(instruct, code, "Prompt")
-	if err != nil {
-		return ResponseData{}, err
+	if !ok {
+		log.Println("Error: 'response' field is not a string array")
+		return weaviate.ResponseData{}, errors.New("invalid response format")
 	}
+
+	PromptID, err := weaviate.CreatePromptObject(instruct, code, "Prompt", gitURL)
+	if err != nil {
+		return weaviate.ResponseData{}, err
+	}
+
+	log.Printf("PromptID: %s\n", PromptID)
 
 	ResponseID, err := weaviate.CreateResponseObject(response, "Response")
 	if err != nil {
-		return ResponseData{}, err
+		return weaviate.ResponseData{}, err
 	}
 
 	err = weaviate.CreateReferences(PromptID, ResponseID)
@@ -100,9 +117,11 @@ func GenerateResponse(prompt map[string]interface{}) (ResponseData, error) {
 		panic(err)
 	}
 
-	responseData := ResponseData{
+	responseData := weaviate.ResponseData{
 		Response: response,
 		PromptID: PromptID,
+		Instruct: instruct,
+		GitURL:   gitURL,
 	}
 
 	return responseData, nil

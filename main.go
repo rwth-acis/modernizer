@@ -44,7 +44,12 @@ func main() {
 	})
 
 	router.GET("/weaviate/retrieveresponse", func(c *gin.Context) {
+
+		//TODO: allow user annotation
+
 		searchQuery := c.Query("query")
+		upvoteStr := c.Query("best")
+		best := upvoteStr == "true"
 
 		// Decode the search query
 		decodedQuery, err := url.QueryUnescape(searchQuery)
@@ -55,13 +60,79 @@ func main() {
 
 		log.Printf("Decoded Query: %s", decodedQuery)
 
-		response, err := weaviate.RetrieveResponse(decodedQuery)
+		var response interface{}
+
+		if best {
+			response, err = weaviate.RetrieveBestResponse(decodedQuery)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+		} else {
+			response, err = weaviate.RetrieveRandomResponse(decodedQuery)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+		}
+
+		c.JSON(http.StatusOK, response)
+	})
+
+	router.GET("/weaviate/retrieveresponselist", func(c *gin.Context) {
+		searchQuery := c.Query("query")
+
+		decodedQuery, err := url.QueryUnescape(searchQuery)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid search query"})
+			return
+		}
+
+		log.Printf("Decoded Query: %s", decodedQuery)
+
+		responseList, err := weaviate.ResponseList(decodedQuery)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
-		c.Data(http.StatusOK, "text/plain; charset=utf-8", []byte(response))
+		c.JSON(http.StatusOK, responseList)
+	})
+
+	router.GET("/weaviate/responsebyid", func(c *gin.Context) {
+		searchQuery := c.Query("id")
+
+		decodedQuery, err := url.QueryUnescape(searchQuery)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid search query"})
+			return
+		}
+
+		response, err := weaviate.RetrieveResponseByID(decodedQuery)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, response)
+	})
+
+	router.GET("/weaviate/propertiesbyid", func(c *gin.Context) {
+		searchQuery := c.Query("id")
+
+		decodedQuery, err := url.QueryUnescape(searchQuery)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid search query"})
+			return
+		}
+
+		response, err := weaviate.RetrieveProperties(decodedQuery)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, response)
 	})
 
 	router.POST("/generate", func(c *gin.Context) {

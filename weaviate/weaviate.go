@@ -11,6 +11,31 @@ import (
 	"strings"
 )
 
+type Position struct {
+	Line      int `json:"line"`
+	Character int `json:"character"`
+}
+
+type Range struct {
+	Start Position `json:"start"`
+	End   Position `json:"end"`
+}
+
+type ResponseData struct {
+	Response string `json:"response"`
+	PromptID string `json:"promptID"`
+	Instruct string `json:"instruct"`
+	GitURL   string `json:"gitURL"`
+}
+
+type PromptProperties struct {
+	Code        string `json:"code"`
+	HasResponse string `json:"hasResponse"`
+	Instruct    string `json:"instruct"`
+	Rank        int    `json:"rank"`
+	GitURL      string `json:"gitURL"`
+}
+
 func InitSchema() error {
 
 	client, err := loadClient()
@@ -91,6 +116,21 @@ func InitSchema() error {
 					DataType:    []string{"int"},
 					Description: "The relative rank for this response against other ones regarding the same code",
 					Name:        "rank",
+					ModuleConfig: map[string]interface{}{
+						"text2vec-transformers": map[string]interface{}{
+							"skip": true,
+						},
+					},
+				},
+				{
+					DataType:    []string{"text"},
+					Description: "A link to the git blob containing the code with the line and character position of the prompt",
+					Name:        "gitURL",
+					ModuleConfig: map[string]interface{}{
+						"text2vec-transformers": map[string]interface{}{
+							"skip": true,
+						},
+					},
 				},
 			},
 		}
@@ -130,16 +170,17 @@ func createClass(className, description, vectorizer string, properties []*models
 	return nil
 }
 
-func CreatePromptObject(prompt string, code string, class string) (string, error) {
+func CreatePromptObject(instruct string, code string, class string, gitURL string) (string, error) {
 	client, err := loadClient()
 	if err != nil {
 		return "", err
 	}
 
 	dataSchema := map[string]interface{}{
-		"instruct": prompt,
+		"instruct": instruct,
 		"code":     code,
 		"rank":     1,
+		"gitURL":   gitURL,
 	}
 
 	weaviateObject, err := client.Data().Creator().
