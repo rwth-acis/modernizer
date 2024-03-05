@@ -41,6 +41,7 @@ func RetrieveProperties(id string) (PromptProperties, error) {
 		HasResponse []map[string]interface{} `json:"hasResponse"`
 		Instruct    string                   `json:"instruct"`
 		Rank        int                      `json:"rank"`
+		GitURL      string                   `json:"gitURL"`
 	}
 
 	if err := json.Unmarshal(propertiesJSON, &temp); err != nil {
@@ -70,6 +71,7 @@ func RetrieveProperties(id string) (PromptProperties, error) {
 		HasResponse: responseText,
 		Instruct:    temp.Instruct,
 		Rank:        temp.Rank,
+		GitURL:      temp.GitURL,
 	}
 
 	return promptProperties, nil

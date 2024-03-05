@@ -20,6 +20,14 @@ func GenerateResponse(prompt map[string]interface{}) (weaviate.ResponseData, err
 		set = "default"
 	}
 
+	gitURL, ok := prompt["gitURL"].(string)
+
+	log.Printf("gitURL: %s\n", gitURL)
+
+	if !ok {
+		gitURL = ""
+	}
+
 	instruct, ok := prompt["instruct"].(string)
 
 	log.Printf("ok: %v", ok)
@@ -92,7 +100,7 @@ func GenerateResponse(prompt map[string]interface{}) (weaviate.ResponseData, err
 		return weaviate.ResponseData{}, errors.New("invalid response format")
 	}
 
-	PromptID, err := weaviate.CreatePromptObject(instruct, code, "Prompt")
+	PromptID, err := weaviate.CreatePromptObject(instruct, code, "Prompt", gitURL)
 	if err != nil {
 		return weaviate.ResponseData{}, err
 	}
@@ -113,6 +121,7 @@ func GenerateResponse(prompt map[string]interface{}) (weaviate.ResponseData, err
 		Response: response,
 		PromptID: PromptID,
 		Instruct: instruct,
+		GitURL:   gitURL,
 	}
 
 	return responseData, nil

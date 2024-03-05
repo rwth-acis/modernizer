@@ -108,8 +108,6 @@ func main() {
 			return
 		}
 
-		log.Printf("Decoded Query: %s", decodedQuery)
-
 		response, err := weaviate.RetrieveResponseByID(decodedQuery)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -127,8 +125,6 @@ func main() {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid search query"})
 			return
 		}
-
-		log.Printf("Decoded Query: %s", decodedQuery)
 
 		response, err := weaviate.RetrieveProperties(decodedQuery)
 		if err != nil {

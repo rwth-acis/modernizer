@@ -25,6 +25,7 @@ type ResponseData struct {
 	Response string `json:"response"`
 	PromptID string `json:"promptID"`
 	Instruct string `json:"instruct"`
+	GitURL   string `json:"gitURL"`
 }
 
 type PromptProperties struct {
@@ -32,6 +33,7 @@ type PromptProperties struct {
 	HasResponse string `json:"hasResponse"`
 	Instruct    string `json:"instruct"`
 	Rank        int    `json:"rank"`
+	GitURL      string `json:"gitURL"`
 }
 
 func InitSchema() error {
@@ -120,6 +122,16 @@ func InitSchema() error {
 						},
 					},
 				},
+				{
+					DataType:    []string{"text"},
+					Description: "A link to the git blob containing the code with the line and character position of the prompt",
+					Name:        "gitURL",
+					ModuleConfig: map[string]interface{}{
+						"text2vec-transformers": map[string]interface{}{
+							"skip": true,
+						},
+					},
+				},
 			},
 		}
 
@@ -158,7 +170,7 @@ func createClass(className, description, vectorizer string, properties []*models
 	return nil
 }
 
-func CreatePromptObject(instruct string, code string, class string) (string, error) {
+func CreatePromptObject(instruct string, code string, class string, gitURL string) (string, error) {
 	client, err := loadClient()
 	if err != nil {
 		return "", err
@@ -168,6 +180,7 @@ func CreatePromptObject(instruct string, code string, class string) (string, err
 		"instruct": instruct,
 		"code":     code,
 		"rank":     1,
+		"gitURL":   gitURL,
 	}
 
 	weaviateObject, err := client.Data().Creator().
