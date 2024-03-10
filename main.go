@@ -20,19 +20,20 @@ func main() {
 
 	redis.InitRedis()
 
-	router := gin.Default()
+	router := gin.New()
+
+	router.Use(gin.LoggerWithConfig(gin.LoggerConfig{
+		SkipPaths: []string{"/weaviate/promptcount", "/weaviate"},
+	}))
+	router.Use(gin.Recovery())
 
 	router.GET("/weaviate/promptcount", func(c *gin.Context) {
 		searchQuery := c.Query("query")
-
-		// Decode the search query
 		decodedQuery, err := url.QueryUnescape(searchQuery)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid search query"})
 			return
 		}
-
-		log.Printf("Decoded Query: %s", decodedQuery)
 
 		count, err := weaviate.RetrievePromptCount(decodedQuery)
 		if err != nil {
@@ -203,6 +204,7 @@ func main() {
 
 	router.POST("/add-instruct", redis.AddInstruct)
 	router.POST("/del-instruct", redis.DeleteInstruct)
+	router.GET("/get-all-sets", redis.GetAllSets)
 
 	err = router.Run(":8080")
 	if err != nil {

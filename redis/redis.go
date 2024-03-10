@@ -27,6 +27,14 @@ func InitRedis() {
 		"Explain me this:",
 		"How does the following code work?",
 		"Explain me step by step how this code works:",
+		"How would you handle errors in this code?",
+		"What testing strategies would you use to test this code?",
+		"How would you handle concurrency in this code?",
+		"Explain me how you would refactor this code to make it more readable:",
+		"Explain me how you would refactor this code to make it more performant:",
+		"Explain me how you would refactor this code to make it more maintainable:",
+		"Explain me how you would refactor this code to make it more testable:",
+		"Can you explain the design decisions behind this code?",
 	}
 
 	rdb.SAdd(ctx, "default", members...)
@@ -34,6 +42,12 @@ func InitRedis() {
 	members = []interface{}{
 		"What security considerations should be taken into account when using this code?",
 		"Are there any security problems in this code:",
+		"What encryption algorithms are used to secure sensitive data?",
+		"Explain me how you would secure this code against SQL injection attacks:",
+		"Explain me how you would secure this code against XSS attacks:",
+		"How would you ensure compliance with security standards in this code?",
+		"Does this code comply with GDPR?",
+		"What authentication and authorization mechanisms are used in this code?",
 	}
 
 	rdb.SAdd(ctx, "security", members...)
@@ -48,6 +62,39 @@ func InitRedis() {
 
 	rdb.SAdd(ctx, "funny", members...)
 
+	members = []interface{}{
+		"What is the overall architecture of this code?",
+		"What technologies and frameworks are used in this code?",
+		"How will this code handle scalability?",
+		"What design patterns or architectural patterns are used in this code?",
+		"What are the trade-offs of using this code?",
+		"What considerations have been made for future maintenance and updates?",
+	}
+
+	rdb.SAdd(ctx, "architecture", members...)
+
+	members = []interface{}{
+		"What business impact does this code have?",
+		"What are the business requirements for this code?",
+		"How will you prioritize tasks and allocate workload among team members?",
+	}
+
+	rdb.SAdd(ctx, "project-management", members...)
+
+	members = []interface{}{
+		"What is the purpose of this function, and does it adhere to the Single Responsibility Principle (SRP)?",
+		"What dependencies does this function have, and can they be minimized or eliminated?",
+		"Does this function exhibit any code smells, such as long parameter lists or excessive branching?",
+		"What level of technical debt does this function carry, and how can it be reduced?",
+		"Are there any performance bottlenecks or inefficiencies in this function?",
+		"Does this function handle error and exception cases effectively?",
+		"Is this function well-documented, and does it have sufficient unit test coverage?",
+		"What design patterns or architectural principles can be applied to improve this function?",
+		"Can this function be optimized for concurrency or parallelism?",
+		"How can this function be modularized or decoupled to promote reusability and maintainability?",
+	}
+
+	rdb.SAdd(ctx, "modernisation", members...)
 }
 
 func AddInstruct(c *gin.Context) {
@@ -63,13 +110,11 @@ func AddInstruct(c *gin.Context) {
 		return
 	}
 
-	// Set the default list name to "default" if not provided.
 	listName := requestData.List
 	if listName == "" {
 		listName = "default"
 	}
 
-	// Add the item to the specified redis set.
 	ctx := context.Background()
 	if err := rdb.SAdd(ctx, listName, requestData.Item).Err(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -106,7 +151,6 @@ func DeleteInstruct(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-// GetSet retrieves the whole set from Redis
 func GetSet(setName string) ([]string, error) {
 	rdb := loadClient()
 
@@ -123,7 +167,6 @@ func GetSet(setName string) ([]string, error) {
 	return vals, nil
 }
 
-// GetSetMember retrieves a single member from Redis
 func GetSetMember(setName string) (string, error) {
 	rdb := loadClient()
 
@@ -138,4 +181,36 @@ func GetSetMember(setName string) (string, error) {
 	}
 
 	return val, nil
+}
+
+func GetAllSets(c *gin.Context) {
+	rdb := loadClient()
+
+	ctx := c.Request.Context()
+	keysCmd := rdb.Keys(ctx, "*") // Get all keys matching the pattern "*"
+
+	keys, err := keysCmd.Result()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	var sets []string
+	for _, key := range keys {
+		typeCmd := rdb.Type(ctx, key) // Get the type of the key
+
+		keyType, err := typeCmd.Result()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		if keyType == "set" {
+			sets = append(sets, key)
+		}
+	}
+
+	c.JSON(http.StatusOK, sets)
+
+	return
 }
