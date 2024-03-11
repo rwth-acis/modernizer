@@ -14,7 +14,7 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 
     
     constructor() {
-        this.regex = /\b(?:func|type|var|const)\b\s+([a-zA-Z_]\w*)/g;
+        this.regex = /\b(?:func|type|var|const|def|public\s+class|function)\b\s+([a-zA-Z_]\w*)|\bfunc\s*\(\s*\*\s*[a-zA-Z_]\w*\s*\)\s*([a-zA-Z_]\w*)|function\s+([a-zA-Z_]\w*)/g;
 
         vscode.workspace.onDidChangeConfiguration(() => {
             this._onDidChangeCodeLenses.fire();
@@ -43,7 +43,7 @@ export class CodelensProvider implements vscode.CodeLensProvider {
             const line = document.lineAt(document.positionAt(matches.index).line);
             const indexOf = line.text.indexOf(matches[0]);
             const position = new vscode.Position(line.lineNumber, indexOf);
-            const range = document.getWordRangeAtPosition(position, /\b(?:func|type|var|const)\b\s+([a-zA-Z_]\w*)/);
+            const range = document.getWordRangeAtPosition(position, this.regex);
 
             if (range) {
                 const codeLens = new vscode.CodeLens(range);
@@ -87,22 +87,26 @@ export class CodelensProvider implements vscode.CodeLensProvider {
             const line = document.lineAt(document.positionAt(match.index).line);
             const position = new vscode.Position(line.lineNumber, match.index);
             const range = new vscode.Range(position, position.with(undefined, match.index + match[0].length));
-    
-            const codeLens = new vscode.CodeLens(range, {
-                title: "Show next Prompt ⮞",
-                tooltip: "Show next Prompt",
-                command: "modernizer-vscode.showNextResponse"
-            });
-
+        
             const gitURL = await getGitURLByID(remainingResponseList[0]);
-
+        
             const codeLens2 = new vscode.CodeLens(range, {
                 title: "Open GitHub Repository",
                 command: "modernizer-vscode.openGitHubRepo",
                 arguments: [gitURL]
             });
-    
-            codeLenses.push(codeLens, codeLens2);
+        
+            codeLenses.push(codeLens2);
+        
+            if (remainingResponseList.length > 1) {
+                const codeLens = new vscode.CodeLens(range, {
+                    title: "Show next Prompt ⮞",
+                    tooltip: "Show next Prompt",
+                    command: "modernizer-vscode.showNextResponse"
+                });
+            
+                codeLenses.push(codeLens);
+            }
         }
     
         return codeLenses;
@@ -234,7 +238,7 @@ async function showResponse(isBestResponse:boolean) {
         outputWindow.append("The instruct used for this prompt: " + responseText.instruct + "\n\n");
         outputWindow.append(responseText.hasResponse);
 
-        remainingResponseList = responseList.slice(1);
+        remainingResponseList = responseList;
 
         const options = [
             { title: `👍 Upvote` },
@@ -260,9 +264,9 @@ async function showResponse(isBestResponse:boolean) {
 }
 
 let disposableNextResponse = vscode.commands.registerCommand('modernizer-vscode.showNextResponse', async () => {
-    await showNextResponse(remainingResponseList);
 
     remainingResponseList = remainingResponseList.slice(1);
+    await showNextResponse(remainingResponseList);
 });
 
 let disposableBest = vscode.commands.registerCommand('modernizer-vscode.showBestResponse', async () => {

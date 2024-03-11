@@ -17,7 +17,6 @@ export function activate(context: ExtensionContext) {
 
 	const codelensProvider = new CodelensProvider();
 
-	context.subscriptions.push(disposableUserInput);
     context.subscriptions.push(disposableGetGitURL);
 
 	languages.registerCodeLensProvider("*", codelensProvider);
@@ -32,6 +31,7 @@ export function activate(context: ExtensionContext) {
 
 	context.subscriptions.push(disposableCustomPrompt);
 	context.subscriptions.push(disposableRandomPrompt);
+    context.subscriptions.push(disposableCustomPromptbyList);
 }
 
 
@@ -75,25 +75,6 @@ export function getSelectedFunctionRange(editor: vscode.TextEditor): vscode.Rang
     }
 }
 
-let disposableUserInput = vscode.commands.registerCommand('modernizer-vscode.customPrompt2', async () => {
-	const editor = vscode.window.activeTextEditor;
-	if (!editor) {
-		vscode.window.showErrorMessage("No text selected.");
-		return;
-	}
-
-	const userInput = await vscode.window.showInputBox({
-		prompt: "Enter instruct to use in prompt"
-	});
-
-	if (!userInput) {
-		vscode.window.showErrorMessage("No input provided.");
-		return;
-	}
-
-	vscode.window.showInformationMessage(`Notification: ${userInput}`);
-});
-
 let disposableRandomPrompt = vscode.commands.registerCommand('modernizer-vscode.randomPrompt', async () => {
 	try {
 		await generateRandomPrompt();
@@ -114,6 +95,14 @@ let disposableGetGitURL = vscode.commands.registerCommand('modernizer-vscode.git
 	try {
 		let URL = await calculateURL();
         vscode.window.showInformationMessage(`Notification: ${URL}`);
+	} catch (error: any) {
+		vscode.window.showErrorMessage(`Error: ${error.message}`);
+	}
+});
+
+let disposableCustomPromptbyList = vscode.commands.registerCommand('modernizer-vscode.PromptByList', async () => {
+	try {
+		await generateCustomPromptbyList();
 	} catch (error: any) {
 		vscode.window.showErrorMessage(`Error: ${error.message}`);
 	}
@@ -143,7 +132,7 @@ async function generateRandomPrompt() {
     const url: string = `${baseUrl}${generateRoute}`;
 
     const promptData = {
-        model: 'codellama:13b-instruct',
+        model: 'codellama:34b-instruct',
         prompt: `${functionCode}`,
         gitURL: gitURL,
     };
@@ -179,7 +168,7 @@ async function generateCustomPrompt() {
     const url: string = `${baseUrl}${generateRoute}`;
 
     const promptData = {
-        model: "codellama:13b-instruct",
+        model: "codellama:34b-instruct",
         prompt: `${functionCode}`,
         instruct: userInput,
         gitURL: gitURL,
@@ -188,45 +177,129 @@ async function generateCustomPrompt() {
     await sendPromptToAPI(url, promptData);
 }
 
+async function generateCustomPromptbyList() {
+    const activeEditor = vscode.window.activeTextEditor;
+    if (!activeEditor) {
+        vscode.window.showErrorMessage("No text selected.");
+        return;
+    }
+
+    const gitURL = await calculateURL();
+
+    const selectedFunctionRange = getSelectedFunctionRange(activeEditor);
+    if (!selectedFunctionRange) {
+        vscode.window.showWarningMessage('No function selected. Please select a function to generate a prompt.');
+        return;
+    }
+
+    const functionCode = activeEditor.document.getText(selectedFunctionRange);
+
+
+    const selectedInstruct = await showInstructTemplates();
+
+    if (!selectedInstruct) return; // User canceled input
+
+    const baseUrl: string = vscode.workspace.getConfiguration("modernizer-vscode").get("baseURL", "https://modernizer.milki-psy.dbis.rwth-aachen.de");
+    const generateRoute: string = "/generate";
+    const url: string = `${baseUrl}${generateRoute}`;
+
+    const promptData = {
+        model: "codellama:34b-instruct",
+        prompt: `${functionCode}`,
+        instruct: selectedInstruct,
+        gitURL: gitURL,
+
+    };
+
+    await sendPromptToAPI(url, promptData);
+}
+
 async function sendPromptToAPI(url: string, promptData: any) {
-    try {
-        const response = await fetch(url, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(promptData)
-        });
+    return vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: 'Sending prompt to API...',
+        cancellable: false
+    }, async (progress, token) => {
+        try {
+            const response = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(promptData)
+            });
 
-        if (response.ok) {
-            try {
-                const contentType = response.headers.get("content-type");
-                if (contentType && contentType.includes("application/json")) {
-                    // Parse and display the Ollama response
-                    const responseBody = await response.json();
-                    const responseText = responseBody.response || "No response field found";
-
-                    const outputWindow = vscode.window.createOutputChannel("Ollama Response");
-                    outputWindow.show(true);
-
-                    outputWindow.append(`Generated new response with the instruct: ${responseBody.instruct}\n\n`);
-                    outputWindow.append(responseText + "\n");
-
-                    if (responseBody.promptID) {
-                        DisplayVoting(responseBody.promptID);
-                    } else {
-                        vscode.window.showWarningMessage("No promptId field found");
-                    }
-                } else {
-                    vscode.window.showWarningMessage("Received non-JSON response. Check the API for possible errors.");
-                }
-            } catch (jsonError: any) {
-                vscode.window.showErrorMessage(`Failed to parse JSON response: ${jsonError.message}`);
+            if (!response.ok) {
+                throw new Error(`Failed to make request: ${response.statusText}`);
             }
-        } else {
-            vscode.window.showErrorMessage(`Failed to make request: ${response.statusText}`);
+
+            const contentType = response.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+                throw new Error("Received non-JSON response. Check the API for possible errors.");
+            }
+
+            const responseBody = await response.json();
+            const responseText = responseBody.response || "No response field found";
+
+            const outputWindow = vscode.window.createOutputChannel("Ollama Response");
+            outputWindow.show(true);
+
+            outputWindow.append(`Generated new response with the instruct: ${responseBody.instruct}\n\n`);
+            outputWindow.append(responseText + "\n");
+
+            if (responseBody.promptID) {
+                DisplayVoting(responseBody.promptID);
+            } else {
+                vscode.window.showWarningMessage("No promptId field found");
+            }
+        } catch (error: any) {
+            vscode.window.showErrorMessage(`Error: ${error.message}`);
         }
+    });
+}
+
+
+
+async function showInstructTemplates(): Promise<string | undefined> {
+    let baseUrl: string = vscode.workspace.getConfiguration("modernizer-vscode").get("baseURL", "https://modernizer.milki-psy.dbis.rwth-aachen.de");
+    let responseListPath: string = '/get-all-sets';
+    let url: string = `${baseUrl}${responseListPath}`;
+    let result: string | undefined;
+
+    try {
+        const response = await fetch(url);
+        const sets = await response.json();
+
+        result = await vscode.window.showQuickPick(sets, {
+            placeHolder: 'Select a set',
+        });
     } catch (error: any) {
         vscode.window.showErrorMessage(`Error: ${error.message}`);
+        return ''; // Return an empty string in case of an error
+    }
+
+    baseUrl = vscode.workspace.getConfiguration("modernizer-vscode").get("baseURL", "https://modernizer.milki-psy.dbis.rwth-aachen.de");
+    responseListPath = '/get-instruct';
+    url = `${baseUrl}${responseListPath}`;
+
+    let queryParams = new URLSearchParams(result ? { set: result } : {});
+    let urlQuery = `${url}?${queryParams.toString()}&all=true`;
+
+    const response = await fetch(urlQuery);
+    if (!response.ok) {
+        vscode.window.showErrorMessage(`Error: ${response.statusText}`);
+        return '';
+    }
+
+    try {
+        const instructs = await response.json();
+        result = await vscode.window.showQuickPick(instructs.result, {
+            placeHolder: 'Select an instruct',
+        });
+
+        return result;
+    } catch (error) {
+        console.error("Error parsing response data:", error);
+        return "";
     }
 }
