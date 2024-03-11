@@ -16,6 +16,9 @@ func GenerateResponse(prompt map[string]interface{}) (weaviate.ResponseData, err
 	url := os.Getenv("OLLAMA_URL") + "/api/generate"
 
 	set, ok := prompt["instructType"].(string)
+
+	log.Printf("instruction type: %s\n", set)
+
 	if !ok {
 		set = "default"
 	}
@@ -30,7 +33,6 @@ func GenerateResponse(prompt map[string]interface{}) (weaviate.ResponseData, err
 
 	instruct, ok := prompt["instruct"].(string)
 
-	log.Printf("ok: %v", ok)
 	if !ok {
 		instruct, _ = redis.GetSetMember(set)
 	}
@@ -48,7 +50,7 @@ func GenerateResponse(prompt map[string]interface{}) (weaviate.ResponseData, err
 
 	model, ok := prompt["model"].(string)
 	if !ok {
-		model = "codellama:13b-instruct"
+		model = "codellama:34b-instruct"
 	}
 
 	requestBody := map[string]interface{}{
