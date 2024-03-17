@@ -380,11 +380,16 @@ func RetrieveResponsesRankDesc(code string) (*models.GraphQLResponse, error) {
 		WithOperator(filters.Like).
 		WithValueText(code)
 
+	rankDesc := graphql.Sort{
+		Path: []string{"rank"}, Order: graphql.Desc,
+	}
+
 	ctx := context.Background()
 	result, err := client.GraphQL().Get().
 		WithClassName("Prompt").
 		WithFields(fields...).
 		WithWhere(where).
+		WithSort(rankDesc).
 		Do(ctx)
 	if err != nil {
 		return nil, err
@@ -471,4 +476,125 @@ func ExtractResponseFromGraphQL(query *models.GraphQLResponse) (string, error) {
 	}
 	return response, nil
 
+}
+
+func RetrieveHasSemanticMeaning(code string) (string, bool) {
+	client, err := loadClient()
+	if err != nil {
+		log.Printf("Error loading client: %v", err)
+	}
+
+	fields := []graphql.Field{
+		{Name: "hasSemanticMeaning", Fields: []graphql.Field{
+			{Name: "... on SemanticMeaning", Fields: []graphql.Field{
+				{Name: "semanticMeaning"},
+			}},
+		}},
+		{Name: "_additional", Fields: []graphql.Field{
+			{Name: "id"},
+		}},
+	}
+
+	where := filters.Where().
+		WithPath([]string{"code"}).
+		WithOperator(filters.Equal).
+		WithValueText(code)
+
+	ctx := context.Background()
+	result, err := client.GraphQL().Get().
+		WithClassName("Prompt").
+		WithFields(fields...).
+		WithLimit(1).
+		WithWhere(where).
+		Do(ctx)
+	if err != nil {
+		log.Printf("error: %v", err)
+	}
+
+	getPrompt, ok := result.Data["Get"].(map[string]interface{})
+	if !ok || len(getPrompt) == 0 {
+		return "", false
+	}
+
+	promptData, ok := getPrompt["Prompt"].([]interface{})
+	if !ok || len(promptData) == 0 {
+		return "", false
+	}
+
+	selectedPrompt := promptData[0].(map[string]interface{})
+
+	hasSemanticMeaning, _ := selectedPrompt["hasSemanticMeaning"].([]interface{})
+
+	firstSemanticMeaningMap, _ := hasSemanticMeaning[0].(map[string]interface{})
+
+	semanticMeaning, _ := firstSemanticMeaningMap["semanticMeaning"].(string)
+
+	return semanticMeaning, true
+}
+
+func GetSimilarSemanticMeaning(code string) ([]string, error) {
+	client, err := loadClient()
+	if err != nil {
+		log.Printf("Error loading client: %v", err)
+	}
+
+	fields := []graphql.Field{
+		{Name: "hasPrompt", Fields: []graphql.Field{
+			{Name: "... on Prompt", Fields: []graphql.Field{
+				{Name: "_additional", Fields: []graphql.Field{
+					{Name: "id"},
+				}},
+				{Name: "gitURL"},
+			}},
+		}},
+	}
+
+	stringArray := []string{code}
+
+	withNearText := client.GraphQL().NearTextArgBuilder().
+		WithConcepts(stringArray)
+
+	result, err := client.GraphQL().Get().
+		WithClassName("SemanticMeaning").
+		WithFields(fields...).
+		WithNearText(withNearText).
+		Do(context.Background())
+
+	getMap, ok := result.Data["Get"].(map[string]interface{})
+	if !ok {
+		return nil, errors.New("unexpected response format: 'Get' field not found or not a map")
+	}
+
+	SemanticMeaningData, ok := getMap["SemanticMeaning"].([]interface{})
+	if !ok || len(SemanticMeaningData) == 0 {
+		return nil, errors.New("unexpected response format: 'Prompt' field not found or empty list")
+	}
+
+	var gitURLs []string
+
+	for _, prompt := range SemanticMeaningData {
+		Map, ok := prompt.(map[string]interface{})
+		if !ok {
+			return nil, errors.New("unexpected response format: prompt data is not a map")
+		}
+
+		hasPrompt, ok := Map["hasPrompt"].([]interface{})
+		if !ok {
+			return nil, errors.New("hasPrompt field not found in prompt data")
+		}
+
+		hasPromptMap, ok := hasPrompt[0].(map[string]interface{})
+		if !ok {
+			return nil, errors.New("hasPrompt field not found in prompt data")
+		}
+
+		gitURL, ok := hasPromptMap["gitURL"]
+		if !ok {
+			return nil, errors.New("rank field not found in prompt data")
+		}
+
+		gitURLs = append(gitURLs, gitURL.(string))
+	}
+
+	return gitURLs, nil
 }

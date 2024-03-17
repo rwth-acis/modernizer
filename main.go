@@ -119,7 +119,19 @@ func main() {
 	})
 
 	router.GET("/weaviate/propertiesbyid", func(c *gin.Context) {
-		searchQuery := c.Query("id")
+		id := c.Query("id")
+
+		response, err := weaviate.RetrieveProperties(id)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, response)
+	})
+
+	router.GET("/get-similar-code", func(c *gin.Context) {
+		searchQuery := c.Query("query")
 
 		decodedQuery, err := url.QueryUnescape(searchQuery)
 		if err != nil {
@@ -127,7 +139,7 @@ func main() {
 			return
 		}
 
-		response, err := weaviate.RetrieveProperties(decodedQuery)
+		response, err := SemanticSimilarity(decodedQuery)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -210,4 +222,25 @@ func main() {
 	if err != nil {
 		return
 	}
+}
+
+func SemanticSimilarity(code string) ([]string, error) {
+	PromptExists, exists := weaviate.RetrieveHasSemanticMeaning(code)
+	if !exists {
+		SemanticMeaning := ollama.SemanticMeaning("", code, false)
+
+		similarCode, err := weaviate.GetSimilarSemanticMeaning(SemanticMeaning)
+		if err != nil {
+			return nil, err
+		}
+		return similarCode, err
+	} else {
+		similarCode, err := weaviate.GetSimilarSemanticMeaning(PromptExists)
+		if err != nil {
+			log.Printf("error: %v", err)
+		}
+
+		return similarCode, err
+	}
+
 }

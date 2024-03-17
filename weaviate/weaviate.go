@@ -74,6 +74,36 @@ func InitSchema() error {
 		log.Println("Response class already exists")
 	}
 
+	exists, err = client.Schema().ClassExistenceChecker().WithClassName("SemanticMeaning").Do(context.Background())
+	if err != nil {
+		return err
+	}
+
+	if !exists {
+		classObj := &models.Class{
+			Class:       "SemanticMeaning",
+			Description: "This class contains the semantic Meaning of the code",
+			Vectorizer:  "text2vec-transformers",
+			ModuleConfig: map[string]interface{}{
+				"text2vec-transformers": map[string]interface{}{},
+			},
+			Properties: []*models.Property{
+				{
+					DataType:    []string{"text"},
+					Description: "The generated response by the LLM",
+					Name:        "semanticMeaning",
+				},
+			},
+		}
+		err = client.Schema().ClassCreator().WithClass(classObj).Do(context.Background())
+		if err != nil {
+			return err
+		}
+		log.Println("created semanticMeaning class")
+	} else {
+		log.Println("semanticMeaning class already exists")
+	}
+
 	exists, err = client.Schema().ClassExistenceChecker().WithClassName("Prompt").Do(context.Background())
 	if err != nil {
 		return err
@@ -113,6 +143,15 @@ func InitSchema() error {
 					},
 				},
 				{
+					DataType: []string{"SemanticMeaning"},
+					Name:     "hasSemanticMeaning",
+					ModuleConfig: map[string]interface{}{
+						"text2vec-transformers": map[string]interface{}{
+							"skip": true,
+						},
+					},
+				},
+				{
 					DataType:    []string{"int"},
 					Description: "The relative rank for this response against other ones regarding the same code",
 					Name:        "rank",
@@ -140,6 +179,22 @@ func InitSchema() error {
 			return err
 		}
 		log.Println("created Prompt class")
+
+		prop := &models.Property{
+			DataType: []string{"Prompt"},
+			Name:     "hasPrompt",
+			ModuleConfig: map[string]interface{}{
+				"text2vec-transformers": map[string]interface{}{
+					"skip": true,
+				},
+			},
+		}
+		err = client.Schema().PropertyCreator().WithClassName("SemanticMeaning").WithProperty(prop).Do(context.Background())
+		if err != nil {
+
+			log.Printf("Error creating property: %v\n", err)
+			return err
+		}
 	} else {
 		log.Println("Prompt class already exists")
 	}
@@ -256,6 +311,28 @@ func CreateResponseObject(response string, class string) (string, error) {
 	return string(weaviateObject.Object.ID), nil
 }
 
+func CreateSemanticMeaningObject(meaning string) (string, error) {
+	client, err := loadClient()
+	if err != nil {
+		return "", err
+	}
+
+	dataSchema := map[string]interface{}{
+		"semanticMeaning": meaning,
+	}
+
+	weaviateObject, err := client.Data().Creator().
+		WithClassName("semanticMeaning").
+		WithProperties(dataSchema).
+		Do(context.Background())
+
+	if err != nil {
+		return "", err
+	}
+
+	return string(weaviateObject.Object.ID), nil
+}
+
 func CreateObject(vector []float32, body string, class string) error {
 	client, err := loadClient()
 	if err != nil {
@@ -293,7 +370,7 @@ func loadClient() (*weaviate.Client, error) {
 	return client, nil
 }
 
-func CreateReferences(PromptID string, ResponseID string) error {
+func CreateResponseReferences(PromptID string, ResponseID string) error {
 	client, err := loadClient()
 	if err != nil {
 		return err
@@ -306,6 +383,52 @@ func CreateReferences(PromptID string, ResponseID string) error {
 		WithReference(client.Data().ReferencePayloadBuilder().
 			WithClassName("Response").
 			WithID(ResponseID).
+			Payload()).
+		Do(context.Background())
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func CreateReferencePromptToSemanticMeaning(PromptID string, semanticMeaningID string) error {
+	client, err := loadClient()
+	if err != nil {
+		return err
+	}
+
+	err = client.Data().ReferenceReplacer().
+		WithClassName("Prompt").
+		WithID(PromptID).
+		WithReferenceProperty("hasSemanticMeaning").
+		WithReferences(&models.MultipleRef{
+			client.Data().ReferencePayloadBuilder().
+				WithClassName("SemanticMeaning").
+				WithID(semanticMeaningID).
+				Payload(),
+		}).
+		Do(context.Background())
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func CreateReferenceSemanticMeaningToPrompt(semanticMeaningID string, PromptID string) error {
+	client, err := loadClient()
+	if err != nil {
+		return err
+	}
+
+	err = client.Data().ReferenceCreator().
+		WithClassName("SemanticMeaning").
+		WithID(semanticMeaningID).
+		WithReferenceProperty("hasPrompt").
+		WithReference(client.Data().ReferencePayloadBuilder().
+			WithClassName("Prompt").
+			WithID(PromptID).
 			Payload()).
 		Do(context.Background())
 	if err != nil {

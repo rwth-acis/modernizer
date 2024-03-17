@@ -37,7 +37,7 @@ func InitRedis() {
 		"Can you explain the design decisions behind this code?",
 	}
 
-	rdb.SAdd(ctx, "default", members...)
+	rdb.SAdd(ctx, "developer", members...)
 
 	members = []interface{}{
 		"What security considerations should be taken into account when using this code?",
@@ -76,7 +76,7 @@ func InitRedis() {
 	members = []interface{}{
 		"What business impact does this code have?",
 		"What are the business requirements for this code?",
-		"How will you prioritize tasks and allocate workload among team members?",
+		"How would you prioritize tasks and allocate workload among team members?",
 	}
 
 	rdb.SAdd(ctx, "project-management", members...)
@@ -95,6 +95,57 @@ func InitRedis() {
 	}
 
 	rdb.SAdd(ctx, "modernisation", members...)
+
+	members = []interface{}{
+		"Explain me this:",
+		"How does the following code work?",
+		"Explain me step by step how this code works:",
+		"Be concise and explain this code:",
+		"What does this code do?",
+		"What is the semantic meaning of this code?",
+	}
+
+	rdb.SAdd(ctx, "explanation", members...)
+
+	members = []interface{}{
+		"What are the inputs required for this function, and what are their expected formats and constraints?",
+		"Are there any boundary conditions or edge cases that need to be tested for this function?",
+		"Are there any dependencies or external factors that may impact the behavior of this function during testing?",
+		"Can you describe any assumptions or preconditions that must be met for this function to behave as expected?",
+		"Are there any error handling mechanisms implemented within this function, and how do they handle unexpected inputs or exceptions?",
+		"Are there any side effects or unintended consequences of calling this function that need to be tested?",
+	}
+
+	rdb.SAdd(ctx, "test-engineering", members...)
+
+	members = []interface{}{
+		"What part of this file needs to be modernized first?",
+		"What part of this file contains the most complexity and needs to dealt with?",
+		"How are dependencies managed within this file or module?",
+		"Can you identify any potential performance bottlenecks within this file?",
+		"Can you discuss any efforts or plans to refactor or modernize this file to improve maintainability?",
+		"How is the modularity and cohesion of this file assessed in terms of maintainability?",
+		"Can you discuss any efforts or plans to refactor or modernize this file to improve testability?",
+		"Are there any specific coding standards or guidelines followed within this file to improve maintainability?",
+		"Are the inline comments enough to understand the complex parts of this file?",
+		"Can you provide insights into any technical debt backlog items related to this file and their prioritization?",
+	}
+
+	rdb.SAdd(ctx, "file-based", members...)
+
+	members = []interface{}{
+		"Can you identify redundant or duplicate code blocks within the codebase?",
+		"Can you analyze the codebase to determine the developer's preferred coding style or patterns?",
+		"Can you detect any intentional obfuscation or encryption techniques used within the codebase for security purposes?",
+		"Does the codebase show recurring themes or motifs that reflect the underlying philosophy or ideology of the developers?",
+		"Based on the codebase what target audience is the code written for?",
+		"When taking Conway's law into account, what team structure can you derive from the codebase?",
+		"When taking Conway's law into account, what team structure can you derive from the codebase and which of those are anti-patterns or worsen the architecture of the software?",
+		"Can you identify any recurring anti-patterns or code smells within the codebase?",
+		"Give me the code performance of each function or class in the O-Notation.",
+	}
+
+	rdb.SAdd(ctx, "miscellaneous", members...)
 }
 
 func AddInstruct(c *gin.Context) {
