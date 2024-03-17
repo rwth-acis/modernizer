@@ -14,7 +14,7 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 
     
     constructor() {
-        this.regex = /\b(?:func|type|var|const|def|public\s+class|function)\b\s+([a-zA-Z_]\w*)|\bfunc\s*\(\s*\*\s*[a-zA-Z_]\w*\s*\)\s*([a-zA-Z_]\w*)|function\s+([a-zA-Z_]\w*)/g;
+        this.regex = /\b(?:func|type|var|def|public\s+class|class|function)\b\s+([a-zA-Z_]\w*)|\bfunc\s*\(\s*\*\s*[a-zA-Z_]\w*\s*\)\s*([a-zA-Z_]\w*)|function\s+([a-zA-Z_]\w*)/g
 
         vscode.workspace.onDidChangeConfiguration(() => {
             this._onDidChangeCodeLenses.fire();
@@ -25,7 +25,9 @@ export class CodelensProvider implements vscode.CodeLensProvider {
 
         if (document.uri.scheme !== 'file') {
             if (document.uri.scheme === 'output') {
-                return this.createOutputWindowCodeLenses(document);
+                const codeLenses1 = await this.createOutputWindowCodeLenses(document);
+                const codeLenses2 = await this.createOutputWindowCodeLensesGenerate(document);
+                return [...codeLenses1, ...codeLenses2];
             } else {
                 return [];
             }
@@ -49,9 +51,9 @@ export class CodelensProvider implements vscode.CodeLensProvider {
                 const codeLens = new vscode.CodeLens(range);
                 
                 codeLens.command = {
-                    title: `Generate Prompt for '${matches[0]}'`,
+                    title: `Explain the Function '${matches[0]}'`,
                     tooltip: `A randomized and pre-built prompt will be sent to an LLM to explain '${matches[0]}'`,
-                    command: "modernizer-vscode.randomPrompt",
+                    command: "modernizer-vscode.randomExplanationPrompt",
                     arguments: [range, functionName]
                 };
 
@@ -100,13 +102,36 @@ export class CodelensProvider implements vscode.CodeLensProvider {
         
             if (remainingResponseList.length > 1) {
                 const codeLens = new vscode.CodeLens(range, {
-                    title: "Show next Prompt ⮞",
-                    tooltip: "Show next Prompt",
+                    title: "Show next Response ⮞",
+                    tooltip: "Show next Response",
                     command: "modernizer-vscode.showNextResponse"
                 });
             
                 codeLenses.push(codeLens);
             }
+        }
+    
+        return codeLenses;
+    }
+
+    private async createOutputWindowCodeLensesGenerate(document: vscode.TextDocument): Promise<vscode.CodeLens[]> {
+        const codeLenses: vscode.CodeLens[] = [];
+    
+        const text = document.getText();
+        const regex = /Generated new response with the instruct: /g;
+        let match;
+        while ((match = regex.exec(text))) {
+            const line = document.lineAt(document.positionAt(match.index).line);
+            const position = new vscode.Position(line.lineNumber, match.index);
+            const range = new vscode.Range(position, position.with(undefined, match.index + match[0].length));
+        
+        
+            const codeLens = new vscode.CodeLens(range, {
+                title: "Save custom Prompt to local settings.json",
+                command: "modernizer-vscode.savePrompt",
+            });
+        
+            codeLenses.push(codeLens);
         }
     
         return codeLenses;

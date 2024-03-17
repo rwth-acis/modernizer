@@ -41,7 +41,7 @@
                     "when": "editorHasSelection && resourceScheme == 'file'"
                 },
                 {
-                    "command": "modernizer-vscode.randomPrompt",
+                    "command": "modernizer-vscode.randomExplanationPrompt",
                     "group": "navigation",
                     "when": "editorHasSelection && resourceScheme == 'file'"
                 },
@@ -88,7 +88,7 @@
             },
             {
                 "title": "Generate random Prompt",
-                "command": "modernizer-vscode.randomPrompt",
+                "command": "modernizer-vscode.randomExplanationPrompt",
                 "category": "Modernizer",
                 "group": "Modernizer"
             },
@@ -101,6 +101,12 @@
             {
                 "title": "Generate Link",
                 "command": "modernizer-vscode.gitURL",
+                "category": "Modernizer",
+                "group": "Modernizer"
+            },
+            {
+                "title": "Get similar code",
+                "command": "modernizer-vscode.getSimilarCode",
                 "category": "Modernizer",
                 "group": "Modernizer"
             },
@@ -121,6 +127,16 @@
                     "type": "string",
                     "default": "https://modernizer.milki-psy.dbis.rwth-aachen.de",
                     "description": "The base URL for the Modernizer backend API"
+                },
+                "modernizer-vscode.customSet": {
+                    "type": "array",
+                    "description": "Custom set of instructs for Modernizer",
+                    "items": {
+                        "type": "string",
+                        "default": [
+                            ""
+                        ]
+                    }
                 }
             }
         }

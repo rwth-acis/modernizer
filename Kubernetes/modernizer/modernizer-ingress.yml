@@ -28,7 +28,7 @@ spec:
                 name: modernizer-backend-service
                 port:
                   number: 443
-          - path: /()(generate)(.*)
+          - path: /()(generate|get-all-sets|get-instruct)(.*)
             pathType: Prefix
             backend:
               service:

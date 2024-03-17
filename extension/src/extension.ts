@@ -32,6 +32,8 @@ export function activate(context: ExtensionContext) {
 	context.subscriptions.push(disposableCustomPrompt);
 	context.subscriptions.push(disposableRandomPrompt);
     context.subscriptions.push(disposableCustomPromptbyList);
+    context.subscriptions.push(disposableGetSimilarCode);
+    context.subscriptions.push(disposableSavePrompt);
 }
 
 
@@ -75,9 +77,9 @@ export function getSelectedFunctionRange(editor: vscode.TextEditor): vscode.Rang
     }
 }
 
-let disposableRandomPrompt = vscode.commands.registerCommand('modernizer-vscode.randomPrompt', async () => {
+let disposableRandomPrompt = vscode.commands.registerCommand('modernizer-vscode.randomExplanationPrompt', async () => {
 	try {
-		await generateRandomPrompt();
+		await randomExplanationPrompt();
 	} catch (error: any) {
 		vscode.window.showErrorMessage(`Error: ${error.message}`);
 	}
@@ -108,7 +110,42 @@ let disposableCustomPromptbyList = vscode.commands.registerCommand('modernizer-v
 	}
 });
 
-async function generateRandomPrompt() {
+let disposableGetSimilarCode = vscode.commands.registerCommand('modernizer-vscode.getSimilarCode', async () => {
+    try {
+        const gitURLs: string[] = await GetSimilarCode();
+        displayGitURLs(gitURLs);
+    } catch (error: any) {
+        vscode.window.showErrorMessage(`Error: ${error.message}`);
+    }
+});
+
+let disposableSavePrompt = vscode.commands.registerCommand('modernizer-vscode.savePrompt', async () => {
+        // Get the active text editor
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showErrorMessage('No active text editor found.');
+            return;
+        }
+    
+        // Get the output window content
+        const outputWindowContent = editor.document.getText();
+    
+        // Extract the instruct from the output window content
+        const instructRegex = /Generated new response with the instruct: (.*)/g;
+        const match = instructRegex.exec(outputWindowContent);
+        if (!match || !match[1]) {
+            vscode.window.showErrorMessage('No instruct found in the output window.');
+            return;
+        }
+        const instruct = match[1];
+    
+        const customSet: string[] = [instruct];
+        await setCustomSet(customSet);
+    
+        vscode.window.showInformationMessage('Custom prompt saved successfully!');
+});
+
+async function randomExplanationPrompt() {
     const activeEditor = vscode.window.activeTextEditor;
     if (!activeEditor) {
         vscode.window.showWarningMessage('No active text editor found.');
@@ -127,17 +164,14 @@ async function generateRandomPrompt() {
     // Extract the function code from the range
     const functionCode = activeEditor.document.getText(selectedFunctionRange);
 
-    const baseUrl: string = vscode.workspace.getConfiguration("modernizer-vscode").get("baseURL", "https://modernizer.milki-psy.dbis.rwth-aachen.de");
-    const generateRoute: string = '/generate';
-    const url: string = `${baseUrl}${generateRoute}`;
-
     const promptData = {
         model: 'codellama:34b-instruct',
         prompt: `${functionCode}`,
         gitURL: gitURL,
+        instructType: 'explanation'
     };
 
-    await sendPromptToAPI(url, promptData);
+    await sendPromptToAPI(promptData);
 }
 
 async function generateCustomPrompt() {
@@ -163,10 +197,6 @@ async function generateCustomPrompt() {
 
     if (!userInput) return; // User canceled input
 
-    const baseUrl: string = vscode.workspace.getConfiguration("modernizer-vscode").get("baseURL", "https://modernizer.milki-psy.dbis.rwth-aachen.de");
-    const generateRoute: string = "/generate";
-    const url: string = `${baseUrl}${generateRoute}`;
-
     const promptData = {
         model: "codellama:34b-instruct",
         prompt: `${functionCode}`,
@@ -174,7 +204,7 @@ async function generateCustomPrompt() {
         gitURL: gitURL,
     };
 
-    await sendPromptToAPI(url, promptData);
+    await sendPromptToAPI(promptData);
 }
 
 async function generateCustomPromptbyList() {
@@ -199,9 +229,6 @@ async function generateCustomPromptbyList() {
 
     if (!selectedInstruct) return; // User canceled input
 
-    const baseUrl: string = vscode.workspace.getConfiguration("modernizer-vscode").get("baseURL", "https://modernizer.milki-psy.dbis.rwth-aachen.de");
-    const generateRoute: string = "/generate";
-    const url: string = `${baseUrl}${generateRoute}`;
 
     const promptData = {
         model: "codellama:34b-instruct",
@@ -211,10 +238,15 @@ async function generateCustomPromptbyList() {
 
     };
 
-    await sendPromptToAPI(url, promptData);
+    await sendPromptToAPI(promptData);
 }
 
-async function sendPromptToAPI(url: string, promptData: any) {
+async function sendPromptToAPI(promptData: any) {
+
+    const baseUrl: string = vscode.workspace.getConfiguration("modernizer-vscode").get("baseURL", "https://modernizer.milki-psy.dbis.rwth-aachen.de");
+    const generateRoute: string = "/generate";
+    const url: string = `${baseUrl}${generateRoute}`;
+
     return vscode.window.withProgress({
         location: vscode.ProgressLocation.Notification,
         title: 'Sending prompt to API...',
@@ -270,12 +302,25 @@ async function showInstructTemplates(): Promise<string | undefined> {
         const response = await fetch(url);
         const sets = await response.json();
 
+        sets.sort();
+        sets.unshift("Custom");
+
         result = await vscode.window.showQuickPick(sets, {
             placeHolder: 'Select a set',
         });
     } catch (error: any) {
         vscode.window.showErrorMessage(`Error: ${error.message}`);
         return ''; // Return an empty string in case of an error
+    }
+
+    if (result === "Custom") {
+        let instructs =  getCustomSet();
+        instructs.sort();
+        result = await vscode.window.showQuickPick(instructs, {
+            placeHolder: 'Select an instruct',
+        });
+
+        return result;
     }
 
     baseUrl = vscode.workspace.getConfiguration("modernizer-vscode").get("baseURL", "https://modernizer.milki-psy.dbis.rwth-aachen.de");
@@ -293,6 +338,7 @@ async function showInstructTemplates(): Promise<string | undefined> {
 
     try {
         const instructs = await response.json();
+        instructs.result.sort();
         result = await vscode.window.showQuickPick(instructs.result, {
             placeHolder: 'Select an instruct',
         });
@@ -302,4 +348,55 @@ async function showInstructTemplates(): Promise<string | undefined> {
         console.error("Error parsing response data:", error);
         return "";
     }
+}
+
+function getCustomSet(): string[] {
+    const customSet: string[] = vscode.workspace.getConfiguration("modernizer-vscode").get("customSet", []);
+    return customSet;
+}
+async function setCustomSet(customSet: string[]): Promise<void> {
+    const configuration = vscode.workspace.getConfiguration("modernizer-vscode");
+    let currentCustomSet = configuration.get<string[]>("customSet", []);
+    const updatedCustomSet = Array.from(new Set([...currentCustomSet, ...customSet]));
+
+    await configuration.update("customSet", updatedCustomSet, vscode.ConfigurationTarget.Global);
+}
+
+async function GetSimilarCode(): Promise<string[]> {
+    try {
+        const activeEditor = vscode.window.activeTextEditor;
+        if (!activeEditor) {
+            return [];
+        }
+
+        const selectedFunctionRange = getSelectedFunctionRange(activeEditor);
+        const functionCode = activeEditor.document.getText(selectedFunctionRange);
+
+        
+        const baseUrl: string = vscode.workspace.getConfiguration("modernizer-vscode").get("baseURL", "https://modernizer.milki-psy.dbis.rwth-aachen.de");
+        const path: string = '/get-similar-code';
+        const url: string = `${baseUrl}${path}`;
+
+        const queryParams = new URLSearchParams({ code: functionCode });
+        const urlQuery = `${url}?${queryParams.toString()}`;
+
+        const response = await fetch(urlQuery);
+        if (!response.ok) {
+            throw new Error("Failed to fetch data");
+        }
+
+        const data = await response.json();
+        return data as string[];
+    } catch (error: any) {
+        throw new Error("Failed to retrieve data: " + error.message);
+    }
+}
+
+function displayGitURLs(gitURLs: string[]): void {
+    const outputChannel = vscode.window.createOutputChannel('Similar Git URLs');
+    outputChannel.show();
+
+    gitURLs.forEach((gitURL, index) => {
+        outputChannel.appendLine(`URL ${index + 1}: ${gitURL}`);
+    });
 }
