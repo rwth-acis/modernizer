@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/weaviate/weaviate-go-client/v4/weaviate/filters"
-	"github.com/weaviate/weaviate-go-client/v4/weaviate/graphql"
-	"github.com/weaviate/weaviate/entities/models"
 	"log"
 	"math/rand"
 	"time"
+
+	"github.com/weaviate/weaviate-go-client/v4/weaviate/filters"
+	"github.com/weaviate/weaviate-go-client/v4/weaviate/graphql"
+	"github.com/weaviate/weaviate/entities/models"
 )
 
 func RetrieveProperties(id string) (PromptProperties, error) {
@@ -549,10 +550,9 @@ func GetSimilarSemanticMeaning(code string) ([]string, error) {
 		}},
 	}
 
-	stringArray := []string{code}
-
 	withNearText := client.GraphQL().NearTextArgBuilder().
-		WithConcepts(stringArray)
+		WithConcepts([]string{code}).
+		WithCertainty(0.8)
 
 	result, err := client.GraphQL().Get().
 		WithClassName("SemanticMeaning").

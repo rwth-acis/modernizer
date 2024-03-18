@@ -131,7 +131,7 @@ func main() {
 	})
 
 	router.GET("/get-similar-code", func(c *gin.Context) {
-		searchQuery := c.Query("query")
+		searchQuery := c.Query("code")
 
 		decodedQuery, err := url.QueryUnescape(searchQuery)
 		if err != nil {

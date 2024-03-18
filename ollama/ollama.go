@@ -141,12 +141,24 @@ func GenerateResponse(prompt map[string]interface{}) (weaviate.ResponseData, err
 }
 
 func SemanticMeaning(promptID string, code string, generateReference bool) string {
-	url := os.Getenv("OLLAMA_URL") + "/api/generate"
+	url := os.Getenv("OLLAMA_URL") + "/api/chat"
 
 	requestBody := map[string]interface{}{
 		"model":  "semantic-meaning",
-		"prompt": "What is the semantic meaning of this code: " + code,
 		"stream": false,
+		"messages": []map[string]string{
+			{"role": "user", "content": "def add(a, b):\n    return a + b"},
+			{"role": "assistant", "content": "add two numbers"},
+			{"role": "user", "content": "public class ArithmeticFunctions {\n    public static double divide(double a, double b) {\n        if (b == 0) {\n            throw new ArithmeticException(\"Cannot divide by zero\");\n        }\n        return a / b;\n    }\n}"},
+			{"role": "assistant", "content": "multiply two numbers"},
+			{"role": "user", "content": "#include <stdio.h>\n\nint fibonacci(int n) {\n    if (n <= 1)\n        return n;\n    else\n        return fibonacci(n - 1) + fibonacci(n - 2);\n}\n\nint main() {\n    int n, i;\n\n    printf(\"Enter the number of terms: \");\n    scanf(\"%d\", &n);\n\n    printf(\"Fibonacci Series: \");\n    for (i = 0; i < n; i++) {\n        printf(\"%d \", fibonacci(i));\n    }\n\n    return 0;\n}\n"},
+			{"role": "assistant", "content": "calculate the fibonacci sequence"},
+			{"role": "user", "content": "func proxy(c *gin.Context) {\n\tremote, err := url.Parse(os.Getenv(\"OLLAMA_URL\"))\n\tif err != nil {\n\t\tpanic(err)\n\t}\n\n\tproxy := httputil.NewSingleHostReverseProxy(remote)\n\tproxy.Director = func(req *http.Request) {\n\t\treq.Header = c.Request.Header\n\t\treq.Host = remote.Host\n\t\treq.URL.Scheme = remote.Scheme\n\t\treq.URL.Host = remote.Host\n\t\treq.URL.Path = c.Param(\"proxyPath\")\n\t}\n\n\tproxy.ServeHTTP(c.Writer, c.Request)\n}"},
+			{"role": "assistant", "content": "reverse proxy"},
+			{"role": "user", "content": "func CreatePromptObject(instruct string, code string, class string, gitURL string) (string, error) {\n\tclient, err := loadClient()\n\tif err != nil {\n\t\treturn \"\", err\n\t}\n\n\tdataSchema := map[string]interface{}{\n\t\t\"instruct\": instruct,\n\t\t\"code\":     code,\n\t\t\"rank\":     1,\n\t\t\"gitURL\":   gitURL,\n\t}\n\n\tweaviateObject, err := client.Data().Creator().\n\t\tWithClassName(class).\n\t\tWithProperties(dataSchema).\n\t\tDo(context.Background())\n\tif err != nil {\n\t\treturn \"\", err\n\t}\n\n\treturn string(weaviateObject.Object.ID), nil\n}"},
+			{"role": "assistant", "content": "create a weaviate object"},
+			{"role": "user", "content": code},
+		},
 	}
 
 	jsonData, err := json.Marshal(requestBody)
@@ -184,16 +196,24 @@ func SemanticMeaning(promptID string, code string, generateReference bool) strin
 		log.Printf("could not unmarshal response: %s\n", err)
 	}
 
-	response, ok := responseJSON["response"].(string)
-	log.Printf("Reponse of semantic Meaning: %s\n", response)
+	message, ok := responseJSON["message"].(map[string]interface{})
 	if !ok {
-		log.Println("Error: 'response' field is not a string array")
+		log.Println("Error: 'message' field is not a map")
+		return ""
 	}
 
+	content, ok := message["content"].(string)
+	if !ok {
+		log.Println("Error: 'content' field is not a string")
+		return ""
+	}
+
+	log.Printf("Content: %s\n", content)
+
 	if !generateReference {
-		return response
+		return content
 	} else {
-		semanticMeaningID, err := weaviate.CreateSemanticMeaningObject(response)
+		semanticMeaningID, err := weaviate.CreateSemanticMeaningObject(content)
 		if err != nil {
 			log.Printf("creating semantic meaning object failed: %s\n", err)
 		}
