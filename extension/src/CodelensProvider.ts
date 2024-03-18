@@ -118,7 +118,7 @@ export class CodelensProvider implements vscode.CodeLensProvider {
         const codeLenses: vscode.CodeLens[] = [];
     
         const text = document.getText();
-        const regex = /Generated new response with the instruct: /g;
+        const regex = /Generated new response with the custom instruct: /g;
         let match;
         while ((match = regex.exec(text))) {
             const line = document.lineAt(document.positionAt(match.index).line);

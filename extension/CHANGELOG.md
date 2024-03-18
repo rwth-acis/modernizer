@@ -2,6 +2,11 @@
 
 All notable changes to the "vscode-modernizer-extension" extension will be documented in this file.
 
+## [v1.3.0]
+
+- save custom prompts to local settings.json
+- find semantically similar functions via vector comparison
+
 ## [v1.1.0]
 
 - add functionality to show next responses in output window

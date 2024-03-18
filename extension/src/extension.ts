@@ -131,7 +131,7 @@ let disposableSavePrompt = vscode.commands.registerCommand('modernizer-vscode.sa
         const outputWindowContent = editor.document.getText();
     
         // Extract the instruct from the output window content
-        const instructRegex = /Generated new response with the instruct: (.*)/g;
+        const instructRegex = /Generated new response with the custom instruct: (.*)/g;
         const match = instructRegex.exec(outputWindowContent);
         if (!match || !match[1]) {
             vscode.window.showErrorMessage('No instruct found in the output window.');
@@ -171,7 +171,7 @@ async function randomExplanationPrompt() {
         instructType: 'explanation'
     };
 
-    await sendPromptToAPI(promptData);
+    await sendPromptToAPI(promptData, false);
 }
 
 async function generateCustomPrompt() {
@@ -204,7 +204,7 @@ async function generateCustomPrompt() {
         gitURL: gitURL,
     };
 
-    await sendPromptToAPI(promptData);
+    await sendPromptToAPI(promptData, true);
 }
 
 async function generateCustomPromptbyList() {
@@ -238,10 +238,10 @@ async function generateCustomPromptbyList() {
 
     };
 
-    await sendPromptToAPI(promptData);
+    await sendPromptToAPI(promptData, false);
 }
 
-async function sendPromptToAPI(promptData: any) {
+async function sendPromptToAPI(promptData: any, custom: boolean){
 
     const baseUrl: string = vscode.workspace.getConfiguration("modernizer-vscode").get("baseURL", "https://modernizer.milki-psy.dbis.rwth-aachen.de");
     const generateRoute: string = "/generate";
@@ -273,21 +273,28 @@ async function sendPromptToAPI(promptData: any) {
             const responseBody = await response.json();
             const responseText = responseBody.response || "No response field found";
 
-            const outputWindow = vscode.window.createOutputChannel("Ollama Response");
-            outputWindow.show(true);
+            OutputWindowGeneratedResponse(responseBody.instruct, responseText, responseBody.promptID, custom);
 
-            outputWindow.append(`Generated new response with the instruct: ${responseBody.instruct}\n\n`);
-            outputWindow.append(responseText + "\n");
-
-            if (responseBody.promptID) {
-                DisplayVoting(responseBody.promptID);
-            } else {
-                vscode.window.showWarningMessage("No promptId field found");
-            }
         } catch (error: any) {
             vscode.window.showErrorMessage(`Error: ${error.message}`);
         }
     });
+}
+
+async function OutputWindowGeneratedResponse(instruct: string, response: string, ID: string, custom: boolean) {
+
+    const outputWindow = vscode.window.createOutputChannel("Ollama Response", "plaintext");
+    outputWindow.show(true);
+
+    if (custom) {
+        outputWindow.append(`Generated new response with the custom instruct: ${instruct}\n\n`);
+    } else {
+        outputWindow.append(`Generated new response with the instruct: ${instruct}\n\n`);
+    }
+    outputWindow.append(response + "\n");
+
+
+    DisplayVoting(ID);
 }
 
 
@@ -392,10 +399,15 @@ async function GetSimilarCode(): Promise<string[]> {
     }
 }
 
-function displayGitURLs(gitURLs: string[]): void {
+async function displayGitURLs(gitURLs: string[]): Promise<void> {
     const outputChannel = vscode.window.createOutputChannel('Similar Git URLs');
     outputChannel.show();
+    outputChannel.appendLine('Similar Code can be found in the following Git URLs:\n\n');
 
+    let URL = await calculateURL();
+
+    gitURLs = gitURLs.filter(gitURL => gitURL !== URL);
+    
     gitURLs.forEach((gitURL, index) => {
         outputChannel.appendLine(`URL ${index + 1}: ${gitURL}`);
     });

@@ -8,6 +8,8 @@ A VSCode extension for displaying and ranking most frequently asked prompts
 - Up- or Downvote the Response
 - Display the current Promptcount
 - Retrieve a random or the highest-ranked* prompt
+- Save custom instructs locally
+- find semantically similar functions via vector comparison
 
 ## Requirements
 
