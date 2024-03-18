@@ -3,12 +3,13 @@ package weaviate
 import (
 	"context"
 	"errors"
-	"github.com/weaviate/weaviate-go-client/v4/weaviate"
-	"github.com/weaviate/weaviate-go-client/v4/weaviate/auth"
-	"github.com/weaviate/weaviate/entities/models"
 	"log"
 	"os"
 	"strings"
+
+	"github.com/weaviate/weaviate-go-client/v4/weaviate"
+	"github.com/weaviate/weaviate-go-client/v4/weaviate/auth"
+	"github.com/weaviate/weaviate/entities/models"
 )
 
 type Position struct {
