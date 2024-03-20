@@ -2,6 +2,11 @@
 
 All notable changes to the "vscode-modernizer-extension" extension will be documented in this file.
 
+## [v2.0.0]
+
+- find responses by instruct type
+- find semantically code by providing the function
+
 ## [v1.3.0]
 
 - save custom prompts to local settings.json

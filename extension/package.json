@@ -2,7 +2,7 @@
     "name": "modernizer-vscode",
     "displayName": "Modernizer",
     "description": "A VSCode extension for displaying and ranking most frequently asked prompts",
-    "version": "1.3.0",
+    "version": "2.0.0",
     "publisher": "IlijaKovacevic",
     "author": "Ilija Kovacevic",
     "icon": "resources/modernizer-logo.jpg",
@@ -52,6 +52,11 @@
                 },
                 {
                     "command": "modernizer-vscode.getSimilarCode",
+                    "group": "navigation",
+                    "when": "editorHasSelection && resourceScheme == 'file'"
+                },
+                {
+                    "command": "modernizer-vscode.getResponseType",
                     "group": "navigation",
                     "when": "editorHasSelection && resourceScheme == 'file'"
                 }
@@ -113,6 +118,18 @@
             {
                 "title": "Generate Prompt by List",
                 "command": "modernizer-vscode.PromptByList",
+                "category": "Modernizer",
+                "group": "Modernizer"
+            },
+            {
+                "title": "Get Responses by Type",
+                "command": "modernizer-vscode.getResponseType",
+                "category": "Modernizer",
+                "group": "Modernizer"
+            },
+            {
+                "title": "Get Similar Meaning",
+                "command": "modernizer-vscode.getSimilarMeaning",
                 "category": "Modernizer",
                 "group": "Modernizer"
             }

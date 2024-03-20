@@ -165,6 +165,31 @@ async function getResponseList(code: string): Promise<string[]> {
     }
 }
 
+export async function GetResponseListType(code: string, instructtype: string) {
+    const baseUrl: string = vscode.workspace.getConfiguration("modernizer-vscode").get("baseURL", "https://modernizer.milki-psy.dbis.rwth-aachen.de");
+    const responseListPath: string = '/weaviate/retrieveresponselist';
+    const url: string = `${baseUrl}${responseListPath}`;
+
+    let queryParams = new URLSearchParams({ query: code });
+    let urlQuery = `${url}?${queryParams.toString()}`;
+
+    queryParams = new URLSearchParams({ instructType: instructtype });
+    urlQuery = `${urlQuery}&${queryParams.toString()}`;
+
+    const response = await fetch(urlQuery);
+    if (!response.ok) {
+
+    }
+
+    try {
+        const responseData = await response.json();
+        remainingResponseList = responseData;
+        showNextResponse(remainingResponseList);
+    } catch (error) {
+        console.error("Error parsing response data:", error);
+    }
+}
+
 async function GetPropertiesByID(promptID: string): Promise<any> {
     try {
         const baseUrl: string = vscode.workspace.getConfiguration("modernizer-vscode").get("baseURL", "https://modernizer.milki-psy.dbis.rwth-aachen.de");

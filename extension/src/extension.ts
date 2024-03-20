@@ -6,6 +6,7 @@ import fetch from 'node-fetch';
 import * as vscode from 'vscode';
 import { DisplayVoting } from './VotingMechanism';
 import { calculateURL } from './Util';
+import { GetResponseListType } from './CodelensProvider';
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -34,6 +35,8 @@ export function activate(context: ExtensionContext) {
     context.subscriptions.push(disposableCustomPromptbyList);
     context.subscriptions.push(disposableGetSimilarCode);
     context.subscriptions.push(disposableSavePrompt);
+    context.subscriptions.push(disposableGetResponseByType);
+    context.subscriptions.push(disposableGetSimilarMeaning);
 }
 
 
@@ -106,7 +109,7 @@ let disposableCustomPromptbyList = vscode.commands.registerCommand('modernizer-v
 	try {
 		await generateCustomPromptbyList();
 	} catch (error: any) {
-		vscode.window.showErrorMessage(`Error: ${error.message}`);
+        vscode.window.showInformationMessage(`No similar code found.`);
 	}
 });
 
@@ -115,8 +118,25 @@ let disposableGetSimilarCode = vscode.commands.registerCommand('modernizer-vscod
         const gitURLs: string[] = await GetSimilarCode();
         displayGitURLs(gitURLs);
     } catch (error: any) {
-        vscode.window.showErrorMessage(`Error: ${error.message}`);
+        vscode.window.showInformationMessage(`No similar code found.`);
     }
+});
+
+let disposableGetSimilarMeaning = vscode.commands.registerCommand('modernizer-vscode.getSimilarMeaning', async () => {
+    try {
+        const gitURLs: string[] = await GetSimilarMeaning();
+        displayGitURLs(gitURLs);
+    } catch (error: any) {
+        vscode.window.showInformationMessage(`No similar code found.`);
+    }
+});
+
+let disposableGetResponseByType = vscode.commands.registerCommand('modernizer-vscode.getResponseType', async () => {
+	try {
+		await showResponseByType();
+	} catch (error: any) {
+		vscode.window.showErrorMessage(`Error: ${error.message}`);
+	}
 });
 
 let disposableSavePrompt = vscode.commands.registerCommand('modernizer-vscode.savePrompt', async () => {
@@ -127,10 +147,8 @@ let disposableSavePrompt = vscode.commands.registerCommand('modernizer-vscode.sa
             return;
         }
     
-        // Get the output window content
         const outputWindowContent = editor.document.getText();
     
-        // Extract the instruct from the output window content
         const instructRegex = /Generated new response with the custom instruct: (.*)/g;
         const match = instructRegex.exec(outputWindowContent);
         if (!match || !match[1]) {
@@ -154,14 +172,12 @@ async function randomExplanationPrompt() {
 
     const gitURL = await calculateURL();
 
-    // Get the selected function range
     const selectedFunctionRange = getSelectedFunctionRange(activeEditor);
     if (!selectedFunctionRange) {
         vscode.window.showWarningMessage('No function selected. Please select a function to generate a prompt.');
         return;
     }
 
-    // Extract the function code from the range
     const functionCode = activeEditor.document.getText(selectedFunctionRange);
 
     const promptData = {
@@ -202,6 +218,7 @@ async function generateCustomPrompt() {
         prompt: `${functionCode}`,
         instruct: userInput,
         gitURL: gitURL,
+        instructType: 'custom'
     };
 
     await sendPromptToAPI(promptData, true);
@@ -233,9 +250,9 @@ async function generateCustomPromptbyList() {
     const promptData = {
         model: "codellama:34b-instruct",
         prompt: `${functionCode}`,
-        instruct: selectedInstruct,
+        instructType: selectedInstruct[0],
+        instruct: selectedInstruct[1],
         gitURL: gitURL,
-
     };
 
     await sendPromptToAPI(promptData, false);
@@ -299,61 +316,68 @@ async function OutputWindowGeneratedResponse(instruct: string, response: string,
 
 
 
-async function showInstructTemplates(): Promise<string | undefined> {
+async function showInstructTemplates(): Promise<string[] | undefined> {
     let baseUrl: string = vscode.workspace.getConfiguration("modernizer-vscode").get("baseURL", "https://modernizer.milki-psy.dbis.rwth-aachen.de");
     let responseListPath: string = '/get-all-sets';
-    let url: string = `${baseUrl}${responseListPath}`;
-    let result: string | undefined;
+    let selectedSet: string[] | undefined;
 
     try {
-        const response = await fetch(url);
+        const response = await fetch(`${baseUrl}${responseListPath}`);
         const sets = await response.json();
 
         sets.sort();
         sets.unshift("Custom");
 
-        result = await vscode.window.showQuickPick(sets, {
+        const set = await vscode.window.showQuickPick(sets, {
             placeHolder: 'Select a set',
+            canPickMany: false
         });
+
+        selectedSet = set ? [set] : undefined;
     } catch (error: any) {
         vscode.window.showErrorMessage(`Error: ${error.message}`);
-        return ''; // Return an empty string in case of an error
+        return undefined; // Return undefined in case of an error
     }
 
-    if (result === "Custom") {
+    if (!selectedSet || selectedSet.length === 0) {
+        return undefined;
+    }
+
+    if (selectedSet[0] === "Custom") {
         let instructs =  getCustomSet();
         instructs.sort();
-        result = await vscode.window.showQuickPick(instructs, {
+        const selectedInstruct = await vscode.window.showQuickPick(instructs, {
             placeHolder: 'Select an instruct',
+            canPickMany: false
         });
 
-        return result;
+        return selectedInstruct ? [selectedSet[0], selectedInstruct] : undefined;
     }
 
     baseUrl = vscode.workspace.getConfiguration("modernizer-vscode").get("baseURL", "https://modernizer.milki-psy.dbis.rwth-aachen.de");
     responseListPath = '/get-instruct';
-    url = `${baseUrl}${responseListPath}`;
-
-    let queryParams = new URLSearchParams(result ? { set: result } : {});
-    let urlQuery = `${url}?${queryParams.toString()}&all=true`;
+    const selectedSetName = selectedSet[0];
+    const queryParams = new URLSearchParams(selectedSetName ? { set: selectedSetName } : {});
+    const urlQuery = `${baseUrl}${responseListPath}?${queryParams.toString()}&all=true`;
 
     const response = await fetch(urlQuery);
     if (!response.ok) {
         vscode.window.showErrorMessage(`Error: ${response.statusText}`);
-        return '';
+        return undefined;
     }
 
     try {
         const instructs = await response.json();
         instructs.result.sort();
-        result = await vscode.window.showQuickPick(instructs.result, {
+        const selectedInstruct = await vscode.window.showQuickPick(instructs.result, {
             placeHolder: 'Select an instruct',
+            canPickMany: false // Ensuring only one selection at a time
         });
 
-        return result;
+        return selectedInstruct ? [selectedSet[0], selectedInstruct] : undefined;
     } catch (error) {
         console.error("Error parsing response data:", error);
-        return "";
+        return undefined;
     }
 }
 
@@ -399,6 +423,36 @@ async function GetSimilarCode(): Promise<string[]> {
     }
 }
 
+async function GetSimilarMeaning(): Promise<string[]> {
+
+    const userInput = await vscode.window.showInputBox({
+        prompt: "Enter the semantic meaning you are looking for"
+    });
+
+    if (!userInput) {
+        return [];
+    }
+
+    const baseUrl: string = vscode.workspace.getConfiguration("modernizer-vscode").get("baseURL", "https://modernizer.milki-psy.dbis.rwth-aachen.de");
+    const path: string = '/get-similar-meaning';
+    const url: string = `${baseUrl}${path}`;
+    const queryParams = new URLSearchParams({ meaning: userInput });
+    const urlQuery = `${url}?${queryParams.toString()}`;
+
+    try {
+        const response = await fetch(urlQuery);
+        if (!response.ok) {
+            throw new Error("Failed to fetch data");
+        }
+
+        const data = await response.json();
+        return data as string[];
+    } catch (error: any) {
+        throw new Error("Failed to retrieve data: " + error.message);
+    }
+}
+
+
 async function displayGitURLs(gitURLs: string[]): Promise<void> {
     const outputChannel = vscode.window.createOutputChannel('Similar Git URLs');
     outputChannel.show();
@@ -407,8 +461,62 @@ async function displayGitURLs(gitURLs: string[]): Promise<void> {
     let URL = await calculateURL();
 
     gitURLs = gitURLs.filter(gitURL => gitURL !== URL);
+    const uniqueURLs = [...new Set(gitURLs)];
     
-    gitURLs.forEach((gitURL, index) => {
+    uniqueURLs.forEach((gitURL, index) => {
         outputChannel.appendLine(`URL ${index + 1}: ${gitURL}`);
     });
+}
+
+async function showResponseByType() {
+    try {
+        const activeEditor = vscode.window.activeTextEditor;
+        if (!activeEditor) {
+            return;
+        }
+
+        const selectedFunctionRange = getSelectedFunctionRange(activeEditor);
+        const functionCode = activeEditor.document.getText(selectedFunctionRange);
+
+        const types = await getTypes(functionCode);
+        if (types.length === 0) {
+            vscode.window.showErrorMessage("No response found.");
+            return;
+        }
+
+            const set = await vscode.window.showQuickPick(types, {
+                placeHolder: 'Select a set',
+                canPickMany: false
+            });
+
+            await GetResponseListType(functionCode, set ?? ""); 
+
+     } catch (error: any) {
+            vscode.window.showErrorMessage("Error: " + error.message);
+     }
+
+}
+
+
+
+async function getTypes(code: string): Promise<string[]> {
+    const baseUrl: string = vscode.workspace.getConfiguration("modernizer-vscode").get("baseURL", "https://modernizer.milki-psy.dbis.rwth-aachen.de");
+    const path: string = '/get-instructtype';
+    const url: string = `${baseUrl}${path}`;
+
+    const queryParams = new URLSearchParams({ code: code });
+    const urlQuery = `${url}?${queryParams.toString()}`;
+
+    const response = await fetch(urlQuery);
+    if (!response.ok) {
+        return [];
+    }
+
+    try {
+        const responseData = await response.json();
+        return responseData;
+    } catch (error) {
+        console.error("Error parsing response data:", error);
+        return [];
+    }
 }
