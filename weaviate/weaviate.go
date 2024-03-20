@@ -131,6 +131,16 @@ func InitSchema() error {
 				},
 				{
 					DataType:    []string{"text"},
+					Description: "instruct type",
+					Name:        "instructType",
+					ModuleConfig: map[string]interface{}{
+						"text2vec-transformers": map[string]interface{}{
+							"skip": true,
+						},
+					},
+				},
+				{
+					DataType:    []string{"text"},
 					Description: "The code which is targeted in the prompt",
 					Name:        "code",
 				},
@@ -226,17 +236,18 @@ func createClass(className, description, vectorizer string, properties []*models
 	return nil
 }
 
-func CreatePromptObject(instruct string, code string, class string, gitURL string) (string, error) {
+func CreatePromptObject(instruct string, instructType string, code string, class string, gitURL string) (string, error) {
 	client, err := loadClient()
 	if err != nil {
 		return "", err
 	}
 
 	dataSchema := map[string]interface{}{
-		"instruct": instruct,
-		"code":     code,
-		"rank":     1,
-		"gitURL":   gitURL,
+		"instruct":     instruct,
+		"code":         code,
+		"rank":         1,
+		"gitURL":       gitURL,
+		"instructType": instructType,
 	}
 
 	weaviateObject, err := client.Data().Creator().
@@ -437,4 +448,19 @@ func CreateReferenceSemanticMeaningToPrompt(semanticMeaningID string, PromptID s
 	}
 
 	return nil
+}
+
+func DeleteAllClasses() {
+	client, err := loadClient()
+	if err != nil {
+		log.Printf("Error loading client: %v\n", err)
+		return
+	}
+
+	classes := []string{"Prompt", "Response", "SemanticMeaning"}
+
+	for _, ch := range classes {
+		err = client.Schema().ClassDeleter().WithClassName(ch).Do(context.Background())
+
+	}
 }

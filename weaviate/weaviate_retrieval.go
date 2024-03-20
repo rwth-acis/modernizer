@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/weaviate/weaviate-go-client/v4/weaviate/filters"
@@ -49,23 +50,33 @@ func RetrieveProperties(id string) (PromptProperties, error) {
 		return PromptProperties{}, err
 	}
 
-	var responseText string
-	if len(temp.HasResponse) > 0 {
-		responseTextBytes, err := json.Marshal(temp.HasResponse)
-		if err != nil {
-			return PromptProperties{}, err
-		}
-		responseText = string(responseTextBytes)
-	}
-
-	response, err := RetrieveResponseByID(id)
+	responseID, err := extractUUIDFromHasResponse(temp.HasResponse)
 	if err != nil {
 		return PromptProperties{}, err
 	}
-	responseText, ok := response.(string)
-	if !ok {
-		return PromptProperties{}, fmt.Errorf("response from RetrieveResponseByID is not a string")
+
+	objects, err = client.Data().ObjectsGetter().
+		WithID(responseID).
+		WithClassName("Response").
+		Do(context.Background())
+	if err != nil {
+		return PromptProperties{}, err
 	}
+
+	propertiesJSON, err = json.Marshal(objects[0].Properties)
+	if err != nil {
+		return PromptProperties{}, err
+	}
+
+	var responseTemp struct {
+		Response string `json:"response"`
+	}
+
+	if err := json.Unmarshal(propertiesJSON, &responseTemp); err != nil {
+		return PromptProperties{}, err
+	}
+
+	responseText := responseTemp.Response
 
 	promptProperties := PromptProperties{
 		Code:        temp.Code,
@@ -76,6 +87,17 @@ func RetrieveProperties(id string) (PromptProperties, error) {
 	}
 
 	return promptProperties, nil
+}
+
+func extractUUIDFromHasResponse(hasResponse []map[string]interface{}) (string, error) {
+	for _, response := range hasResponse {
+		if beacon, ok := response["beacon"].(string); ok {
+			// Split the beacon string to extract the UUID
+			uuid := beacon[strings.LastIndex(beacon, "/")+1:]
+			return uuid, nil
+		}
+	}
+	return "", fmt.Errorf("no UUID found in hasResponse field")
 }
 
 func RetrievePromptCount(code string) (int, error) {
@@ -184,8 +206,8 @@ func RetrieveResponseByID(id string) (interface{}, error) {
 	return response, nil
 }
 
-func ResponseList(code string) ([]string, error) {
-	responses, err := RetrieveResponsesRankDesc(code)
+func ResponseList(code string, instructtype string) ([]string, error) {
+	responses, err := RetrieveResponsesRankDesc(code, instructtype)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +247,7 @@ func ResponseList(code string) ([]string, error) {
 
 func RetrieveBestResponse(code string) (ResponseData, error) {
 
-	responses, err := RetrieveResponsesRankDesc(code)
+	responses, err := RetrieveResponsesRankDesc(code, "")
 	if err != nil {
 		return ResponseData{}, err
 	}
@@ -307,7 +329,7 @@ func RetrieveBestResponse(code string) (ResponseData, error) {
 
 func RetrieveRandomResponse(code string) (ResponseData, error) {
 
-	responses, err := RetrieveResponsesRankDesc(code)
+	responses, err := RetrieveResponsesRankDesc(code, "")
 	if err != nil {
 		return ResponseData{}, err
 	}
@@ -356,7 +378,7 @@ func RetrieveRandomResponse(code string) (ResponseData, error) {
 	return responseData, nil
 }
 
-func RetrieveResponsesRankDesc(code string) (*models.GraphQLResponse, error) {
+func RetrieveResponsesRankDesc(code string, instructType string) (*models.GraphQLResponse, error) {
 
 	client, err := loadClient()
 	if err != nil {
@@ -376,10 +398,22 @@ func RetrieveResponsesRankDesc(code string) (*models.GraphQLResponse, error) {
 		{Name: "instruct"},
 	}
 
+	if instructType == "" {
+		instructType = "*" // wildcard to match all instruct types
+	}
+
 	where := filters.Where().
-		WithPath([]string{"code"}).
-		WithOperator(filters.Like).
-		WithValueText(code)
+		WithOperator(filters.And).
+		WithOperands([]*filters.WhereBuilder{
+			filters.Where().
+				WithPath([]string{"code"}).
+				WithOperator(filters.Like).
+				WithValueText(code),
+			filters.Where().
+				WithPath([]string{"instructType"}).
+				WithOperator(filters.Equal).
+				WithValueText(instructType),
+		})
 
 	rankDesc := graphql.Sort{
 		Path: []string{"rank"}, Order: graphql.Desc,
@@ -533,7 +567,7 @@ func RetrieveHasSemanticMeaning(code string) (string, bool) {
 	return semanticMeaning, true
 }
 
-func GetSimilarSemanticMeaning(code string) ([]string, error) {
+func GetSimilarSemanticMeaning(meaning string) ([]string, error) {
 	client, err := loadClient()
 	if err != nil {
 		log.Printf("Error loading client: %v", err)
@@ -551,7 +585,7 @@ func GetSimilarSemanticMeaning(code string) ([]string, error) {
 	}
 
 	withNearText := client.GraphQL().NearTextArgBuilder().
-		WithConcepts([]string{code}).
+		WithConcepts([]string{meaning}).
 		WithCertainty(0.8)
 
 	result, err := client.GraphQL().Get().
@@ -597,4 +631,67 @@ func GetSimilarSemanticMeaning(code string) ([]string, error) {
 	}
 
 	return gitURLs, nil
+}
+
+func GetInstructTypes(code string) ([]string, error) {
+	client, err := loadClient()
+	if err != nil {
+		log.Printf("Error loading client: %v", err)
+	}
+
+	fields := []graphql.Field{
+		{Name: "instructType"},
+	}
+
+	where := filters.Where().
+		WithPath([]string{"code"}).
+		WithOperator(filters.Like).
+		WithValueText(code)
+
+	result, err := client.GraphQL().Get().
+		WithClassName("Prompt").
+		WithFields(fields...).
+		WithWhere(where).
+		Do(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	uniqueExplanationStrings := ExtractExplanationStrings(result)
+
+	log.Printf("uniqueExplanationStrings: %v", uniqueExplanationStrings)
+	return uniqueExplanationStrings, nil
+}
+
+func ExtractExplanationStrings(result *models.GraphQLResponse) []string {
+	var explanationStrings []string
+
+	getMap, ok := result.Data["Get"].(map[string]interface{})
+	if !ok {
+		return explanationStrings
+	}
+
+	promptList, ok := getMap["Prompt"].([]interface{})
+	if !ok {
+		return explanationStrings
+	}
+
+	explanationSet := make(map[string]struct{})
+	for _, prompt := range promptList {
+		promptMap, ok := prompt.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		explanation, ok := promptMap["instructType"].(string)
+		if !ok {
+			continue
+		}
+		explanationSet[explanation] = struct{}{}
+	}
+
+	for explanation := range explanationSet {
+		explanationStrings = append(explanationStrings, explanation)
+	}
+
+	return explanationStrings
 }

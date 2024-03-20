@@ -265,3 +265,27 @@ func GetAllSets(c *gin.Context) {
 
 	return
 }
+
+func DeleteAllSets() {
+	rdb := loadClient()
+
+	keysCmd := rdb.Keys(context.Background(), "*") // Get all keys matching the pattern "*"
+
+	keys, err := keysCmd.Result()
+	if err != nil {
+		return
+	}
+
+	for _, key := range keys {
+		typeCmd := rdb.Type(context.Background(), key) // Get the type of the key
+
+		keyType, err := typeCmd.Result()
+		if err != nil {
+			return
+		}
+
+		if keyType == "set" {
+			rdb.Del(context.Background(), key)
+		}
+	}
+}

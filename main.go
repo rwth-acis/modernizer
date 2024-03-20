@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -82,6 +83,7 @@ func main() {
 
 	router.GET("/weaviate/retrieveresponselist", func(c *gin.Context) {
 		searchQuery := c.Query("query")
+		instructType := c.Query("instructType")
 
 		decodedQuery, err := url.QueryUnescape(searchQuery)
 		if err != nil {
@@ -91,7 +93,7 @@ func main() {
 
 		log.Printf("Decoded Query: %s", decodedQuery)
 
-		responseList, err := weaviate.ResponseList(decodedQuery)
+		responseList, err := weaviate.ResponseList(decodedQuery, instructType)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -130,6 +132,24 @@ func main() {
 		c.JSON(http.StatusOK, response)
 	})
 
+	router.GET("/get-similar-meaning", func(c *gin.Context) {
+		searchQuery := c.Query("meaning")
+
+		decodedQuery, err := url.QueryUnescape(searchQuery)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid search query"})
+			return
+		}
+
+		response, err := SemanticSimilarityByMeaning(decodedQuery)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, response)
+	})
+
 	router.GET("/get-similar-code", func(c *gin.Context) {
 		searchQuery := c.Query("code")
 
@@ -139,7 +159,25 @@ func main() {
 			return
 		}
 
-		response, err := SemanticSimilarity(decodedQuery)
+		response, err := SemanticSimilarityByCode(decodedQuery)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, response)
+	})
+
+	router.GET("/get-instructtype", func(c *gin.Context) {
+		searchQuery := c.Query("code")
+
+		decodedQuery, err := url.QueryUnescape(searchQuery)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid search query"})
+			return
+		}
+
+		response, err := weaviate.GetInstructTypes(decodedQuery)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -217,6 +255,16 @@ func main() {
 	router.POST("/add-instruct", redis.AddInstruct)
 	router.POST("/del-instruct", redis.DeleteInstruct)
 	router.GET("/get-all-sets", redis.GetAllSets)
+	router.GET("/delete-db", func(c *gin.Context) {
+		secretkey := c.Query("key")
+
+		if secretkey == os.Getenv("delete_key") {
+			ResetDB()
+			c.JSON(http.StatusOK, "OK")
+		} else {
+			c.JSON(http.StatusUnauthorized, "Unauthorized")
+		}
+	})
 
 	err = router.Run(":8080")
 	if err != nil {
@@ -224,7 +272,7 @@ func main() {
 	}
 }
 
-func SemanticSimilarity(code string) ([]string, error) {
+func SemanticSimilarityByCode(code string) ([]string, error) {
 	PromptExists, exists := weaviate.RetrieveHasSemanticMeaning(code)
 	if !exists {
 		SemanticMeaning := ollama.SemanticMeaning("", code, false)
@@ -242,5 +290,22 @@ func SemanticSimilarity(code string) ([]string, error) {
 
 		return similarCode, err
 	}
+}
 
+func SemanticSimilarityByMeaning(meaning string) ([]string, error) {
+	similarCode, err := weaviate.GetSimilarSemanticMeaning(meaning)
+	if err != nil {
+		return nil, err
+	}
+	return similarCode, err
+}
+
+func ResetDB() {
+	redis.DeleteAllSets()
+	redis.InitRedis()
+	weaviate.DeleteAllClasses()
+	err := weaviate.InitSchema()
+	if err != nil {
+		return
+	}
 }

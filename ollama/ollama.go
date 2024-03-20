@@ -111,7 +111,7 @@ func GenerateResponse(prompt map[string]interface{}) (weaviate.ResponseData, err
 		return weaviate.ResponseData{}, errors.New("invalid response format")
 	}
 
-	PromptID, err := weaviate.CreatePromptObject(instruct, code, "Prompt", gitURL)
+	PromptID, err := weaviate.CreatePromptObject(instruct, set, code, "Prompt", gitURL)
 	if err != nil {
 		return weaviate.ResponseData{}, err
 	}
