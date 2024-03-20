@@ -23,7 +23,10 @@ A bachelor thesis project to enhance legacy software modernization via LLMs
 ### Option 3: Packaged VSIX Extension
 
 1. Download the latest release from the [GitHub releases page](https://github.com/rwth-acis/modernizer/releases/tag/v1.2.0)
-2. Install it from the command line with `code --install-extension modernizer-1.2.0.vsix`
+2. Install it from the command line with:
+```shell
+code --install-extension modernizer-2.0.0.vsix
+```
 
 ### Option 4: Compile from Source
 
@@ -36,12 +39,24 @@ A bachelor thesis project to enhance legacy software modernization via LLMs
 
 In order to showcase the functionalities a repository is prepared with a few examples. The repository can be found [here](https://github.com/ili16/example-functions.git).
 
-- Clone the repository: `git clone https://github.com/ili16/example-functions.git`
-- Change to the repository directory: `cd example-functions`
+- Clone the repository: 
+```shell
+git clone https://github.com/ili16/example-functions.git
+```
+- Change to the repository directory:
+```shell
+cd example-functions
+```
 - Open the repository in Visual Studio Code with all extensions disabled except for the modernizer extension:
-    - Windows: `& code . ($(& code --list-extensions | Where-Object { $_ -ne 'ilijakovacevic.modernizer-vscode' } | ForEach-Object { "--disable-extension" ; $_ }) )`
-    - Linux: `code . $(code --list-extensions | grep -v 'ilijakovacevic.modernizer-vscode' | sed 's/^/--disable-extension /' | tr '\n' ' ')
-      `
+    - Windows: 
+```shell
+& code . ($(& code --list-extensions | Where-Object { $_ -ne 'ilijakovacevic.modernizer-vscode' } | ForEach-Object { "--disable-extension" ; $_ }) )
+```
+- Linux:
+
+```shell
+code . $(code --list-extensions | grep -v 'ilijakovacevic.modernizer-vscode' | sed 's/^/--disable-extension /' | tr '\n' ' ')
+```
 
 ## Features:
 
