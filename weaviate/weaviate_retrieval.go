@@ -207,6 +207,10 @@ func RetrieveResponseByID(id string) (interface{}, error) {
 }
 
 func ResponseList(code string, instructtype string) ([]string, error) {
+
+	if instructtype == "" {
+		instructtype = "*"
+	}
 	responses, err := RetrieveResponsesRankDesc(code, instructtype)
 	if err != nil {
 		return nil, err
