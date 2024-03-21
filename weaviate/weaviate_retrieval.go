@@ -208,9 +208,6 @@ func RetrieveResponseByID(id string) (interface{}, error) {
 
 func ResponseList(code string, instructtype string) ([]string, error) {
 
-	if instructtype == "" {
-		instructtype = "*"
-	}
 	responses, err := RetrieveResponsesRankDesc(code, instructtype)
 	if err != nil {
 		return nil, err
@@ -415,7 +412,7 @@ func RetrieveResponsesRankDesc(code string, instructType string) (*models.GraphQ
 				WithValueText(code),
 			filters.Where().
 				WithPath([]string{"instructType"}).
-				WithOperator(filters.Equal).
+				WithOperator(filters.Like).
 				WithValueText(instructType),
 		})
 
