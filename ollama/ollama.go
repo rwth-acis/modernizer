@@ -60,7 +60,7 @@ func GenerateResponse(prompt map[string]interface{}) (weaviate.ResponseData, err
 	}
 
 	requestBody := map[string]interface{}{
-		"model":  model,
+		"model":  "codellama:13b-instruct",
 		"prompt": completePrompt,
 		"stream": false,
 		"options": map[string]interface{}{
