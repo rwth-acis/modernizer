@@ -47,11 +47,6 @@ func GenerateResponse(prompt map[string]interface{}) (weaviate.ResponseData, err
 
 	completePrompt := instruct + " " + code
 
-	model, ok := prompt["model"].(string)
-	if !ok {
-		model = "codellama:34b-instruct"
-	}
-
 	var context int
 	if len(completePrompt) < 2048 {
 		context = 2048
