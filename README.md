@@ -1,6 +1,6 @@
 # modernizer
 
-A bachelor thesis project to enhance legacy software modernization via LLMs
+A project to enhance legacy software modernization via LLMs
 
 ## Prerequisites:
 
@@ -11,52 +11,15 @@ A bachelor thesis project to enhance legacy software modernization via LLMs
 
 ### Option 1: Command Line
 ```shell
- code --install-extension IlijaKovacevic.modernizer-vscode
+ code --install-extension Anonymous.modernizer-vscode
 ```
 
-### Option 2: Visual Studio Code
+### Option 2: Compile from Source
 
-1. Open **Extensions** sidebar panel in Visual Studio Code. `View → Extensions`
-2. Search for `modernizer`
-3. Click **Install** to install it
-
-### Option 3: Packaged VSIX Extension
-
-1. Download the latest release from the [GitHub releases page](https://github.com/rwth-acis/modernizer/releases/tag/v1.2.0)
-2. Install it from the command line with:
-```shell
-code --install-extension modernizer-2.0.0.vsix
-```
-
-### Option 4: Compile from Source
-
-1. Clone the repository: `git clone https://github.com/rwth-acis/modernizer.git`
+1. Clone the repository
 2. Open the subfolder `extension` in Visual Studio Code
 3. Run `npm install` to install the dependencies
 4. Press `F5` to start a new window with the extension loaded
-
-## Usage:
-
-In order to showcase the functionalities a repository is prepared with a few examples. The repository can be found [here](https://github.com/ili16/example-functions.git).
-
-- Clone the repository: 
-```shell
-git clone https://github.com/ili16/example-functions.git
-```
-- Change to the repository directory:
-```shell
-cd example-functions
-```
-- Open the repository in Visual Studio Code with all extensions disabled except for the modernizer extension:
-    - Windows: 
-```shell
-& code . ($(& code --list-extensions | Where-Object { $_ -ne 'ilijakovacevic.modernizer-vscode' } | ForEach-Object { "--disable-extension" ; $_ }) )
-```
-- Linux:
-
-```shell
-code . $(code --list-extensions | grep -v 'ilijakovacevic.modernizer-vscode' | sed 's/^/--disable-extension /' | tr '\n' ' ')
-```
 
 ## Features:
 
@@ -90,7 +53,7 @@ The backend won't be available for future use so you can uninstall the extension
 ### Option 1: Command Line
 
 ```shell
- code --uninstall-extension IlijaKovacevic.modernizer-vscode
+ code --uninstall-extension Anonymous.modernizer-vscode
 ```
 
 ### Option 2: Visual Studio Code

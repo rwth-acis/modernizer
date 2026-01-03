@@ -6,7 +6,7 @@ metadata:
     app: modernizer-backend
 spec:
   containers:
-  - image: registry.tech4comp.dbis.rwth-aachen.de/rwthacis/modernizer:latest 
+  - image: local-modernizer:latest 
     command:
       - "./main"
     imagePullPolicy: Always

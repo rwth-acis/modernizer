@@ -14,13 +14,13 @@ spec:
     spec:
       containers:
       - name: modernizer-backend
-        image: registry.tech4comp.dbis.rwth-aachen.de/rwthacis/modernizer:latest
+        image: local-modernizer:latest
         ports:
         - containerPort: 8080
         imagePullPolicy: Always
         env:
           - name: OLLAMA_URL
-            value: "https://quagga-crack-bluejay.ngrok-free.app"
+            value: "https://localhost:11434"
           - name: WEAVIATE_HOST
             value: "weaviate.ba-kovacevic:80"
           - name: OLLAMA_MODEL

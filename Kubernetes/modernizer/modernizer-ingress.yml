@@ -8,10 +8,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - modernizer.milki-psy.dbis.rwth-aachen.de
+        - modernizer.localhost
       secretName: nginx-tls
   rules:
-    - host: modernizer.milki-psy.dbis.rwth-aachen.de
+    - host: modernizer.localhost
       http:
         paths:
           - path: /()(ollama)(.*)
@@ -45,4 +45,4 @@ spec:
 status:
   loadBalancer:
     ingress:
-      - ip: 137.226.232.175
+      - ip: 127.0.0.1

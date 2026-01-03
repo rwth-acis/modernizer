@@ -1,4 +1,4 @@
-module github.com/rwth-acis/modernizer
+module local-modernizer
 
 go 1.21
 
